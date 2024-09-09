@@ -2,24 +2,30 @@ import React, { useState } from 'react';
 import Button from '@mui/material/Button';
 import Input from '@mui/material/Input';
 import FormLabel from '@mui/material/FormLabel';
+import { blue, grey } from '@mui/material/colors';
 import { Dumbbell } from "lucide-react";
-import { Link } from 'react-router-dom';
-import { auth } from '../../FirebaseConfig';  // Import Firebase auth
+import { Link, useNavigate } from 'react-router-dom';
+import { auth } from '../../FirebaseConfig';
 import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { sendResetPasswordEmail } from '../../utils/AuthUtils';
 
 export default function LogIn() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const provider = new GoogleAuthProvider();
+  const navigate = useNavigate();
 
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value);
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value);
+  const [loggedIn, setLoggedIn] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      console.log('User logged in successfully');
+      const data: any = await signInWithEmailAndPassword(auth, email, password);
+      localStorage.setItem("token", data.user.accessToken)
+      setLoggedIn(true);
+      navigate('/homepage');
     } catch (error: any) {
       console.error('Error logging in:', error.message);
     }
@@ -29,8 +35,24 @@ export default function LogIn() {
     try {
       await signInWithPopup(auth, provider);
       console.log('Google sign-in successful');
+      navigate('/homepage');
     } catch (error: any) {
       console.error('Error with Google sign-in:', error.message);
+    }
+  };
+
+  const handleForgotPassword = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+    if (email) {
+      sendResetPasswordEmail(email)
+        .then(() => {
+          console.log(`Password reset email sent to ${email}`);
+        })
+        .catch((error) => {
+          console.error('Error sending password reset email:', error);
+        });
+    } else {
+      console.error('Please enter an email address.');
     }
   };
 
@@ -46,7 +68,7 @@ export default function LogIn() {
             <h2 className="text-2xl font-semibold text-center mb-6">Log In</h2>
             <Button
               variant="outlined"
-              className="w-full mb-4 flex items-center justify-center border-gray-300 text-gray-700 hover:bg-gray-100"
+              className="w-full mb-4 flex items-center justify-center"
               type="button"
               onClick={handleGoogleSignIn}
             >
@@ -75,7 +97,9 @@ export default function LogIn() {
               </Button>
             </form>
             <div className="mt-4 text-center">
-              <a href="#" className="text-sm text-primary hover:underline">Forgot password?</a>
+              <a href="#" className="text-sm text-primary hover:underline" onClick={handleForgotPassword}>
+                Forgot password?
+              </a>
             </div>
             <div className="mt-6 border-t pt-4">
               <p className="text-center text-sm text-gray-600">
