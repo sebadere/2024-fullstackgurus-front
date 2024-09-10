@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Button from '@mui/material/Button';
 import Input from '@mui/material/Input';
 import FormLabel from '@mui/material/FormLabel';
@@ -56,6 +56,13 @@ export default function LogIn() {
       console.error('Please enter an email address.');
     }
   };
+
+  useEffect(() => {
+    if (loggedIn) {
+      navigate('/homepage');
+    }
+  }, [loggedIn, navigate]);
+
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 flex flex-col items-center justify-center p-4">
