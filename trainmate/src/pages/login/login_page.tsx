@@ -24,6 +24,7 @@ export default function LogIn() {
     try {
       const data: any = await signInWithEmailAndPassword(auth, email, password);
       localStorage.setItem("token", data.user.accessToken)
+      console.log('Sign in success');
       setLoggedIn(true);
       navigate('/homepage');
     } catch (error: any) {
