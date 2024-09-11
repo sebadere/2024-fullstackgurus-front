@@ -6,11 +6,15 @@ import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import InputLabel from '@mui/material/InputLabel';
 import FormControl from '@mui/material/FormControl';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { auth } from '../../FirebaseConfig';  // Import Firebase auth
 import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+
 
 export default function SignUp() {
+  const provider = new GoogleAuthProvider();
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -39,6 +43,17 @@ export default function SignUp() {
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    try {
+      await signInWithPopup(auth, provider);
+      console.log('Google sign-in successful');
+      navigate('/homepage');
+      window.location.reload();
+    } catch (error: any) {
+      console.error('Error with Google sign-in:', error.message);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -49,7 +64,7 @@ export default function SignUp() {
           </div>
           <div className="p-6">
             <h2 className="text-2xl font-semibold text-center mb-6">Sign Up</h2>
-            <Button variant="outlined" className="w-full mb-4 flex items-center justify-center border-gray-300 text-gray-700 hover:bg-gray-100" type="button">
+            <Button variant="outlined" className="w-full mb-4 flex items-center justify-center border-gray-300 text-gray-700 hover:bg-gray-100" type="button" onClick={handleGoogleSignIn}>
               <img src={require('../../images/google_logo.png')} alt="Google logo" className="w-5 h-5 mr-2" />
               Sign up with Google
             </Button>

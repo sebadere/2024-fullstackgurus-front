@@ -35,7 +35,8 @@ export default function LogIn() {
     try {
       await signInWithPopup(auth, provider);
       console.log('Google sign-in successful');
-      navigate('/');
+      navigate('/homepage');
+      window.location.reload();
     } catch (error: any) {
       console.error('Error with Google sign-in:', error.message);
     }
