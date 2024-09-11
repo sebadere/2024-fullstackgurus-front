@@ -24,9 +24,8 @@ export default function LogIn() {
     try {
       const data: any = await signInWithEmailAndPassword(auth, email, password);
       localStorage.setItem("token", data.user.accessToken)
-      console.log('Sign in success');
-      setLoggedIn(true);
       navigate('/homepage');
+      window.location.reload();
     } catch (error: any) {
       console.error('Error logging in:', error.message);
     }
