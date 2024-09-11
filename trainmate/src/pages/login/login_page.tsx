@@ -31,14 +31,27 @@ export default function LogIn() {
     }
   };
 
+  
   const handleGoogleSignIn = async () => {
+    const provider = new GoogleAuthProvider();
+  
     try {
-      await signInWithPopup(auth, provider);
-      console.log('Google sign-in successful');
-      navigate('/homepage');
-      window.location.reload();
-    } catch (error: any) {
-      console.error('Error with Google sign-in:', error.message);
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+      
+      // Verificar si es el primer inicio de sesión
+      const isFirstLogin = user.metadata.creationTime === user.metadata.lastSignInTime;
+  
+      if (isFirstLogin) {
+        navigate('/profile');
+        window.location.reload();
+      } else {
+        navigate('/homepage');
+        window.location.reload();
+      }
+  
+    } catch (error) {
+      console.error('Error en el inicio de sesión con Google:', error);
     }
   };
 

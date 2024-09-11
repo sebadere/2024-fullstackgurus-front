@@ -20,6 +20,7 @@ import Typography from '@mui/material/Typography';
 import ScrollArea from '@mui/material/Box';
 import { getWorkouts, saveWorkout, getWorkoutsCalories } from '../../api/WorkoutsApi';
 import { calculate_calories_per_day } from '../../functions/calculations';
+import { useNavigate } from 'react-router-dom';
 
 const exerciseTypes = [
   'Running', 'Weightlifting', 'Cycling', 'Swimming', 'Football', 'Basketball', 'Tennis',
@@ -39,6 +40,7 @@ export default function HomePage() {
   const [exerciseList, setExerciseList] = useState<Exercise[]>([]);
   const [addedExcercise, setAddedExercise] = useState(false);
   const [caloriesPerDay, setCaloriesPerDay] = useState<{ [date: string]: number }>({});
+  const navigate = useNavigate();
 
   const getAllWorkouts = async () => {
     try {
@@ -153,7 +155,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 text-white">
       <header className="p-4 flex justify-between items-center">
-        <Avatar alt="User" src={require('../../images/profile_pic.png')} />
+        <Avatar alt="User" src={require('../../images/profile_pic.png')} onClick={() => navigate("/profile")}/>
         <IconButton aria-label="add" onClick={handleClickOpen}>
           <AddCircleOutlineIcon sx={{ color: grey[50], fontSize: 40 }} className="h-24 w-24" />
         </IconButton>
