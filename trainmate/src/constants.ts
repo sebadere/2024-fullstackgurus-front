@@ -1,0 +1,1 @@
+export const BASE_URL = 'https://two024-fullstackgurus-back.onrender.com';

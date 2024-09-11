@@ -18,6 +18,7 @@ import { Dumbbell, Timer, Bike, Trophy } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from 'recharts';
 import Typography from '@mui/material/Typography';
 import ScrollArea from '@mui/material/Box';
+import { saveWorkout } from '../../api/WorkoutsApi';
 
 const data = [
   { name: 'Week 1', calories: 420 },
@@ -57,25 +58,41 @@ export default function HomePage() {
     setOpen(false);
   };
 
-  const handleAddExercise = () => {
+  const handleAddExercise = async () => {
     if (newExercise.type && newExercise.duration && newExercise.date) {
-      setExerciseList([
-        ...exerciseList,
-        {
-          id: exerciseList.length + 1,
-          ...newExercise,
-          calories: Math.floor(Math.random() * 300) + 100,
-        },
-      ]);
+      const exercise = {
+        id: exerciseList.length + 1,
+        ...newExercise,
+        calories: Math.floor(Math.random() * 300) + 100, // Generating a random calorie value
+      };
+  
+      setExerciseList([...exerciseList, exercise]);
+  
       setNewExercise({
         type: '',
         duration: '',
         date: new Date().toISOString().split('T')[0],
       });
+
+      try {
+        const token = localStorage.getItem('token');
+        if (token) {
+          await saveWorkout(token, {
+            exercise: newExercise.type,
+            duration: parseInt(newExercise.duration, 10),
+            date: newExercise.date,
+          });
+          console.log('Workout saved successfully');
+        } else {
+          console.error('No token found, unable to save workout');
+        }
+      } catch (error) {
+        console.error('Error saving workout:', error);
+      }
+  
       handleClose();
     }
   };
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 text-white">
       <header className="p-4 flex justify-between items-center">

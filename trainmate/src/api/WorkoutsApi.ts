@@ -1,5 +1,6 @@
 // WorkoutsAPI.ts
-const BASE_URL = 'http://localhost:5000';
+
+import { BASE_URL } from "../constants";
 
 
 export const saveWorkout = async (token: string, workoutData: { exercise: string, duration: number, date: string }) => {
