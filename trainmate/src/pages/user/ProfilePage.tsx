@@ -85,6 +85,12 @@ export default function ProfilePage() {
   const handleBackToHome = () => {
     navigate('/homepage');
   };
+  
+
+  const handleLogOut = () => {
+    localStorage.removeItem("token")
+    window.location.reload();
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 text-white">
@@ -215,6 +221,13 @@ export default function ProfilePage() {
           sx={{ mt: 2, color: '#fff', borderColor: '#fff' }}
         >
           Back to Home
+        </Button>
+        <Button
+          variant="outlined"
+          onClick={handleLogOut}
+          sx={{ mt: 2, color: '#fff', borderColor: '#fff' }}
+        >
+          Log out
         </Button>
       </main>
     </div>
