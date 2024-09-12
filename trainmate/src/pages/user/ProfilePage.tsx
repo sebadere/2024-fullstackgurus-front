@@ -9,6 +9,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import { useNavigate } from 'react-router-dom';
 import { getUserProfile, updateUserProfile } from '../../api/UserAPI';
 import { grey } from '@mui/material/colors';
+import { getAuth } from 'firebase/auth';
 
 export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
@@ -22,6 +23,7 @@ export default function ProfilePage() {
   });
 
   const navigate = useNavigate();
+  const auth = getAuth();
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -31,12 +33,20 @@ export default function ProfilePage() {
         
         const profileData = await getUserProfile();
 
+        const user = auth.currentUser;
+
+        if (!user) {
+          throw new Error("No user authenticated");
+        }
+
+        const email = user.email;
+
         const formattedData = {
           full_name: profileData.fullName,
           gender: profileData.gender,
           weight: profileData.weight,
           height: profileData.height,
-          email: profileData.email,
+          email: email || profileData.email,
           birthday: profileData.birthday,
         };
         console.log('formattedData:', formattedData);

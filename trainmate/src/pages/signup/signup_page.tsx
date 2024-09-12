@@ -47,10 +47,9 @@ export default function SignUp() {
       await createUserWithEmailAndPassword(auth, formDataWithIntegers.email, formDataWithIntegers.password);
       const data: any = await signInWithEmailAndPassword(auth, formDataWithIntegers.email, formDataWithIntegers.password);
       localStorage.setItem("token", data.user.accessToken);
+      await saveUserInfo(formDataWithIntegers)
       navigate('/homepage');
       window.location.reload();
-      await saveUserInfo(formDataWithIntegers)
-      console.log('User registered successfully');
     } catch (error: any) {
       console.error('Error signing up:', error.message);
     }
