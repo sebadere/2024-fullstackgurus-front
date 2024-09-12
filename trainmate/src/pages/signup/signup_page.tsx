@@ -49,7 +49,8 @@ export default function SignUp() {
     try {
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
-      
+      const idToken = await user.getIdToken();
+      localStorage.setItem("token", idToken);
       // Verificar si es el primer inicio de sesión
       const isFirstLogin = user.metadata.creationTime === user.metadata.lastSignInTime;
   
