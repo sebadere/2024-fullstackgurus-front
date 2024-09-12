@@ -19,7 +19,7 @@ const handleResponse = async (response: Response) => {
  * Función para guardar la información del usuario
  * @param userInfo Objeto que contiene la información del usuario
  */
-export const saveUserInfo = async (userInfo: { full_name: string; gender: string; weight: string; height: string }) => {
+export const saveUserInfo = async (userInfo: { weight: number; height: number; name: string; email: string; password: string; sex: string; birthday: string; }) => {
   const token = getAuthToken();
   if (!token) throw new Error('Token no encontrado');
 

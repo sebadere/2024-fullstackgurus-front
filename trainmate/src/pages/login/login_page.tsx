@@ -2,28 +2,35 @@ import React, { useState, useEffect } from 'react';
 import Button from '@mui/material/Button';
 import Input from '@mui/material/Input';
 import FormLabel from '@mui/material/FormLabel';
-import { blue, grey } from '@mui/material/colors';
 import { Dumbbell } from "lucide-react";
 import { Link, useNavigate } from 'react-router-dom';
 import { auth } from '../../FirebaseConfig';
 import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { sendResetPasswordEmail } from '../../utils/AuthUtils';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogTitle from '@mui/material/DialogTitle';
+import TextField from '@mui/material/TextField';
 
 export default function LogIn() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const provider = new GoogleAuthProvider();
   const navigate = useNavigate();
+  const [loggedIn, setLoggedIn] = useState(false);
 
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value);
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value);
-  const [loggedIn, setLoggedIn] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const data: any = await signInWithEmailAndPassword(auth, email, password);
-      localStorage.setItem("token", data.user.accessToken)
+      localStorage.setItem("token", data.user.accessToken);
       navigate('/homepage');
       window.location.reload();
     } catch (error: any) {
@@ -31,38 +38,35 @@ export default function LogIn() {
     }
   };
 
-  
   const handleGoogleSignIn = async () => {
-    const provider = new GoogleAuthProvider();
-  
     try {
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
       const idToken = await user.getIdToken();
       localStorage.setItem("token", idToken);
-      // Verificar si es el primer inicio de sesión
+
       const isFirstLogin = user.metadata.creationTime === user.metadata.lastSignInTime;
-  
+
       if (isFirstLogin) {
-        // Redirigir a la página de perfil usando window.location.href
         window.location.href = '/profile';
       } else {
-        // Redirigir a la página de inicio usando window.location.href
         window.location.href = '/homepage';
       }
-  
-  
     } catch (error) {
       console.error('Error en el inicio de sesión con Google:', error);
     }
   };
 
-  const handleForgotPassword = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    e.preventDefault();
-    if (email) {
-      sendResetPasswordEmail(email)
+  const handleForgotPasswordClick = () => {
+    setIsModalOpen(true);
+  };
+
+  const handleSendResetPassword = () => {
+    if (forgotEmail) {
+      sendResetPasswordEmail(forgotEmail)
         .then(() => {
-          console.log(`Password reset email sent to ${email}`);
+          console.log(`Password reset email sent to ${forgotEmail}`);
+          setIsModalOpen(false);
         })
         .catch((error) => {
           console.error('Error sending password reset email:', error);
@@ -72,12 +76,9 @@ export default function LogIn() {
     }
   };
 
-  useEffect(() => {
-    if (loggedIn) {
-      navigate('/homepage');
-    }
-  }, [loggedIn, navigate]);
-
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 flex flex-col items-center justify-center p-4">
@@ -120,7 +121,7 @@ export default function LogIn() {
               </Button>
             </form>
             <div className="mt-4 text-center">
-              <a href="#" className="text-sm text-primary hover:underline" onClick={handleForgotPassword}>
+              <a href="#" className="text-sm text-primary hover:underline" onClick={handleForgotPasswordClick}>
                 Forgot password?
               </a>
             </div>
@@ -136,6 +137,32 @@ export default function LogIn() {
           <p>© 2024 TrainMate. All rights reserved.</p>
         </div>
       </div>
+
+      <Dialog open={isModalOpen} onClose={handleCloseModal}>
+        <DialogTitle>Reset Password</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Please enter your email address to receive a password reset link.
+          </DialogContentText>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Email Address"
+            type="email"
+            fullWidth
+            value={forgotEmail}
+            onChange={(e) => setForgotEmail(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseModal} color="secondary">
+            Cancel
+          </Button>
+          <Button onClick={handleSendResetPassword} color="primary">
+            Send
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 }

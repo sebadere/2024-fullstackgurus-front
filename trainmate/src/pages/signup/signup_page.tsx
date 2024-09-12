@@ -10,7 +10,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { auth } from '../../FirebaseConfig';  // Import Firebase auth
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
-
+import { saveUserInfo } from '../../api/UserAPI';
 
 export default function SignUp() {
   const provider = new GoogleAuthProvider();
@@ -26,17 +26,30 @@ export default function SignUp() {
   });
 
   const handleChange = (e: any) => {
-    const { id, value } = e.target;
+    const { id, name, value } = e.target;
+  
     setFormData((prevState) => ({
       ...prevState,
-      [id]: value,
+      [name || id]: value, 
     }));
   };
 
   const handleSubmit = async (e: any) => {
     e.preventDefault();
+  
+    const formDataWithIntegers = {
+      ...formData,
+      weight: parseInt(formData.weight, 10),
+      height: parseInt(formData.height, 10),
+    };
+  
     try {
-      await createUserWithEmailAndPassword(auth, formData.email, formData.password);
+      await createUserWithEmailAndPassword(auth, formDataWithIntegers.email, formDataWithIntegers.password);
+      const data: any = await signInWithEmailAndPassword(auth, formDataWithIntegers.email, formDataWithIntegers.password);
+      localStorage.setItem("token", data.user.accessToken);
+      navigate('/homepage');
+      window.location.reload();
+      await saveUserInfo(formDataWithIntegers)
       console.log('User registered successfully');
     } catch (error: any) {
       console.error('Error signing up:', error.message);
@@ -55,10 +68,8 @@ export default function SignUp() {
       const isFirstLogin = user.metadata.creationTime === user.metadata.lastSignInTime;
       
       if (isFirstLogin) {
-        // Redirigir a la página de perfil usando window.location.href
         window.location.href = '/profile';
       } else {
-        // Redirigir a la página de inicio usando window.location.href
         window.location.href = '/homepage';
       }
   
@@ -95,7 +106,7 @@ export default function SignUp() {
               <TextField fullWidth id="password" label="Password" type="password" required value={formData.password} onChange={handleChange} />
               <FormControl fullWidth>
                 <InputLabel id="sex-label">Sex</InputLabel>
-                <Select labelId="sex-label" id="sex" value={formData.sex} onChange={handleChange}>
+                <Select labelId="sex-label" name="sex" value={formData.sex} onChange={handleChange}>
                   <MenuItem value="male">Male</MenuItem>
                   <MenuItem value="female">Female</MenuItem>
                   <MenuItem value="other">Other</MenuItem>
