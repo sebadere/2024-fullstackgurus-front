@@ -84,7 +84,7 @@ export default function ProfilePage() {
             <TextField
               fullWidth
               label="Nombre Completo"
-              name="full_name"
+              name="fullName"
               value={userProfile.fullName}
               onChange={handleChange}
               disabled={!isEditing}
