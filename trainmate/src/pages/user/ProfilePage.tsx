@@ -15,7 +15,7 @@ const genders = ['masculino', 'femenino', 'otro'];
 export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [userProfile, setUserProfile] = useState({
-    fullName: '',
+    full_name: '',  // Cambiado a full_name
     gender: '',
     weight: '',
     height: ''
@@ -24,19 +24,25 @@ export default function ProfilePage() {
   const navigate = useNavigate();  // Inicializa useNavigate
 
   useEffect(() => {
-    // Obtener el perfil del usuario al cargar la página
     const fetchProfile = async () => {
       try {
         const token = localStorage.getItem('token');
         if (!token) throw new Error('Token no encontrado');
-
+  
         const profileData = await getUserProfile();
-        setUserProfile(profileData);
+
+        const formattedData = {
+          full_name: profileData.fullName,  // Mapear el valor devuelto a full_name
+          gender: profileData.gender,
+          weight: profileData.weight,
+          height: profileData.height,
+        };
+        setUserProfile(formattedData);
       } catch (error) {
         console.error('Error al obtener el perfil del usuario:', error);
       }
     };
-
+  
     fetchProfile();
   }, []);
 
@@ -53,7 +59,7 @@ export default function ProfilePage() {
       const token = localStorage.getItem('token');
       if (!token) throw new Error('Token no encontrado');
 
-      await updateUserProfile(userProfile);
+      await updateUserProfile(userProfile);  // Asegúrate de que se envía el objeto correcto
       setIsEditing(false);
       console.log('Perfil actualizado correctamente');
     } catch (error) {
@@ -84,8 +90,8 @@ export default function ProfilePage() {
             <TextField
               fullWidth
               label="Nombre Completo"
-              name="fullName"
-              value={userProfile.fullName}
+              name="full_name"  // Cambiado a full_name para que coincida con el backend
+              value={userProfile.full_name}  // Usamos full_name
               onChange={handleChange}
               disabled={!isEditing}
               margin="normal"
