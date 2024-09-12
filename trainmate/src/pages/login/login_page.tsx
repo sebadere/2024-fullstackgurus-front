@@ -44,10 +44,8 @@ export default function LogIn() {
   
       if (isFirstLogin) {
         navigate('/profile');
-        window.location.reload();
       } else {
         navigate('/homepage');
-        window.location.reload();
       }
   
     } catch (error) {

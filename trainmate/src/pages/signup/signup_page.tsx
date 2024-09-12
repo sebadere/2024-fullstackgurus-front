@@ -55,10 +55,8 @@ export default function SignUp() {
   
       if (isFirstLogin) {
         navigate('/profile');
-        window.location.reload();
       } else {
         navigate('/homepage');
-        window.location.reload();
       }
   
     } catch (error) {
