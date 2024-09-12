@@ -44,10 +44,13 @@ export default function LogIn() {
       const isFirstLogin = user.metadata.creationTime === user.metadata.lastSignInTime;
   
       if (isFirstLogin) {
-        navigate('/profile');
+        // Redirigir a la página de perfil usando window.location.href
+        window.location.href = '/profile';
       } else {
-        navigate('/homepage');
+        // Redirigir a la página de inicio usando window.location.href
+        window.location.href = '/homepage';
       }
+  
   
     } catch (error) {
       console.error('Error en el inicio de sesión con Google:', error);
