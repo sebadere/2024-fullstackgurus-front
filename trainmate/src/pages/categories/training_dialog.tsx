@@ -1,7 +1,7 @@
 import * as React from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Select, MenuItem, InputLabel, FormControl, Checkbox, ListItemText, SelectChangeEvent } from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, DialogActions, TextField, Select, MenuItem, InputLabel, FormControl, Checkbox, ListItemText, SelectChangeEvent, FormControlLabel } from '@mui/material';
 import grey from '@mui/material/colors/grey';
-import { saveTraining } from '../../api/TrainingApi';
+import { adaptTraining, saveTraining } from '../../api/TrainingApi';
 import handleCategoryIcon from '../../personalizedComponents/handleCategoryIcon';
 import LoadingButton from '../../personalizedComponents/buttons/LoadingButton';
 
@@ -13,6 +13,8 @@ interface Exercise {
   owner: string;
   public: boolean;
   training_muscle: string;
+  equipment_required?: string[];
+  alternative_exercise_ids?: string[];
 }
 
 interface CategoryWithExercises {
@@ -45,6 +47,19 @@ const CreateTrainingDialog: React.FC<CreateTrainingDialogProps> = ({ createNewTr
   const [selectedExercises, setSelectedExercises] = React.useState<{ [key: string]: string[] }>({});
   const [trainingName, setTrainingName] = React.useState<string>('');
   const [loadingButton, setLoadingButton] = React.useState<boolean>(false)
+  const [autoAdapt, setAutoAdapt] = React.useState<boolean>(true);
+  const [availability, setAvailability] = React.useState<'NONE' | 'HOUSEHOLD'>('NONE');
+  const [adaptationResult, setAdaptationResult] = React.useState<{ replacements: { from: string, to: string }[], missing: string[] } | null>(null);
+
+  const exerciseNameById = React.useMemo(() => {
+    const map = new Map<string, string>();
+    categoryWithExercises.forEach((category) => {
+      category.exercises.forEach((exercise) => {
+        map.set(exercise.id, exercise.name);
+      });
+    });
+    return map;
+  }, [categoryWithExercises]);
 
   const handleCategoryChange = (event: SelectChangeEvent<string[]>) => {
     const { value } = event.target;
@@ -60,26 +75,64 @@ const CreateTrainingDialog: React.FC<CreateTrainingDialogProps> = ({ createNewTr
   };
 
   const handleCreateTraining = async () => {
-    const newTraining = {
-      name: trainingName,
-      exercises: Object.keys(selectedExercises).reduce((allExercises, categoryId) => {
-        const exercisesInCategory = categoryWithExercises.find(cat => cat.id === categoryId)?.exercises || [];
-        const selectedExerciseObjects = selectedExercises[categoryId].map(exId => exercisesInCategory.find(ex => ex.id === exId)!);
-        return [...allExercises, ...selectedExerciseObjects];
-      }, [] as Exercise[]),
-    };
-    if (newTraining && newTraining.name) {
-      try {
-        setLoadingButton(true)
-        const training = await saveTraining(newTraining);
-        const trainingWithId = { ...newTraining, id: training.id, calories_per_hour_mean: training.calories_per_hour_mean, owner: training.owner };
-        setTrainings((prevTrainings) => [...prevTrainings, trainingWithId]);
-        setAlertTrainingAddedOpen(true);
-      } catch (error) {
-        setLoadingButton(false)
-        console.error('Error al guardar el entrenamiento:', error);
+    const selectedExerciseObjects = Object.keys(selectedExercises).reduce((allExercises, categoryId) => {
+      const exercisesInCategory = categoryWithExercises.find(cat => cat.id === categoryId)?.exercises || [];
+      const selectedObjects = selectedExercises[categoryId].map(exId => exercisesInCategory.find(ex => ex.id === exId)!).filter(Boolean);
+      return [...allExercises, ...selectedObjects];
+    }, [] as Exercise[]);
+
+    if (!trainingName) {
+      return;
+    }
+
+    let exercisesForSave = selectedExerciseObjects;
+
+    try {
+      setLoadingButton(true);
+
+      if (autoAdapt && selectedExerciseObjects.length) {
+        const available_equipment = availability === 'HOUSEHOLD' ? ['NONE', 'HOUSEHOLD'] : ['NONE'];
+        const adaptResult = await adaptTraining({
+          exercises: selectedExerciseObjects.map(exercise => exercise.id),
+          available_equipment,
+        });
+
+        setAdaptationResult({
+          replacements: adaptResult.replacements || [],
+          missing: adaptResult.missing || [],
+        });
+
+        exercisesForSave = adaptResult.adapted_exercises || [];
+
+        const updatedSelections: { [key: string]: string[] } = {};
+        exercisesForSave.forEach((exercise: Exercise) => {
+          if (!updatedSelections[exercise.category_id]) {
+            updatedSelections[exercise.category_id] = [];
+          }
+          updatedSelections[exercise.category_id].push(exercise.id);
+        });
+        setSelectedCategories(Object.keys(updatedSelections));
+        setSelectedExercises(updatedSelections);
       }
-      setLoadingButton(false)
+
+      const newTraining = {
+        name: trainingName,
+        exercises: exercisesForSave,
+      };
+
+      if (!newTraining.exercises.length) {
+        setLoadingButton(false);
+        return;
+      }
+
+      const training = await saveTraining(newTraining);
+      const trainingWithId = { ...newTraining, id: training.id, calories_per_hour_mean: training.calories_per_hour_mean, owner: training.owner };
+      setTrainings((prevTrainings) => [...prevTrainings, trainingWithId]);
+      setAlertTrainingAddedOpen(true);
+    } catch (error) {
+      console.error('Error al guardar el entrenamiento:', error);
+    } finally {
+      setLoadingButton(false);
       handleClose();
     }
   };
@@ -88,6 +141,7 @@ const CreateTrainingDialog: React.FC<CreateTrainingDialogProps> = ({ createNewTr
     setSelectedCategories([]);
     setSelectedExercises({});
     setTrainingName('');
+    setAdaptationResult(null);
     handleCloseAddTrainingDialog();
   };
 
@@ -128,6 +182,56 @@ const CreateTrainingDialog: React.FC<CreateTrainingDialogProps> = ({ createNewTr
             htmlInput: { min: 1, max: 1000 }
           }}
         />
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={autoAdapt}
+              onChange={(e) => setAutoAdapt(e.target.checked)}
+            />
+          }
+          label="Auto-adapt exercises for no equipment"
+          sx={{ mt: 2, color: '#fff' }}
+        />
+        <FormControl fullWidth sx={{ mt: 1 }}>
+          <InputLabel id="availability-label" sx={{ color: '#fff' }}>Availability</InputLabel>
+          <Select
+            labelId="availability-label"
+            id="availability"
+            value={availability}
+            onChange={(e) => setAvailability(e.target.value as 'NONE' | 'HOUSEHOLD')}
+            label="Availability"
+            sx={{
+              color: '#fff',
+              '& .MuiOutlinedInput-notchedOutline': { borderColor: '#fff' },
+              '& .MuiSvgIcon-root': { color: '#fff' },
+            }}
+            MenuProps={{
+              PaperProps: {
+                sx: {
+                  backgroundColor: '#444',
+                  color: '#fff',
+                },
+              },
+            }}
+          >
+            <MenuItem value="NONE">No equipment</MenuItem>
+            <MenuItem value="HOUSEHOLD">Household items</MenuItem>
+          </Select>
+        </FormControl>
+        {adaptationResult && (adaptationResult.replacements.length > 0 || adaptationResult.missing.length > 0) && (
+          <div style={{ marginTop: 12, color: '#fff' }}>
+            {adaptationResult.replacements.length > 0 && (
+              <p style={{ fontSize: '0.85rem' }}>
+                Replacements: {adaptationResult.replacements.map((item) => `${exerciseNameById.get(item.from) || item.from} → ${exerciseNameById.get(item.to) || item.to}`).join(', ')}
+              </p>
+            )}
+            {adaptationResult.missing.length > 0 && (
+              <p style={{ fontSize: '0.85rem', color: '#ffb74d' }}>
+                Missing alternatives for {adaptationResult.missing.length} exercises. They will be skipped.
+              </p>
+            )}
+          </div>
+        )}
 
         {/* MultiSelect para categorías */}
         <FormControl fullWidth sx={{ mt: 2 }}>

@@ -5,6 +5,7 @@ import dayjs, { Dayjs } from 'dayjs';
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { cancelWorkout, getWorkouts } from '../../api/WorkoutsApi';
+import { getOutdoorWorkouts } from '../../api/OutdoorWorkoutsApi';
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
 import CloseIcon from '@mui/icons-material/Close';
 import { DemoContainer } from '@mui/x-date-pickers/internals/demo';
@@ -27,6 +28,8 @@ const CalendarModal: React.FC<DrawerProps> = ({ showDrawer, onClose, open }) => 
     date: string;
     duration: number;
     calories: number;
+    source: 'workout' | 'outdoor';
+    distance_km?: number;
   }
 
   const [selectedEvents, setSelectedEvents] = useState<Event[]>([]);
@@ -59,9 +62,24 @@ const CalendarModal: React.FC<DrawerProps> = ({ showDrawer, onClose, open }) => 
         date: workout.date,
         duration: workout.duration,
         calories: workout.total_calories,
+        source: 'workout' as const,
       }));
 
-      const sortedEvents: Event[] = filteredEvents.sort((a: Event, b: Event) =>
+      const outdoor = await getOutdoorWorkouts(
+        start ? start.format('YYYY-MM-DD') : undefined,
+        end ? end.format('YYYY-MM-DD') : undefined
+      );
+      const outdoorEvents = outdoor.map((session: any) => ({
+        id: session.id,
+        name: `Outdoor: ${session.activity_type}`,
+        date: session.date,
+        duration: session.duration_minutes,
+        calories: session.calories,
+        distance_km: session.distance_km,
+        source: 'outdoor' as const,
+      }));
+
+      const sortedEvents: Event[] = [...filteredEvents, ...outdoorEvents].sort((a: Event, b: Event) =>
         dayjs(b.date).diff(dayjs(a.date))
       );
 
@@ -281,7 +299,7 @@ const CalendarModal: React.FC<DrawerProps> = ({ showDrawer, onClose, open }) => 
                 .filter((event) => dayjs(event.date).isSameOrAfter(today))
                 .map((event: Event) => (
                   <Box
-                    key={event.date}
+                    key={event.id}
                     sx={{
                       marginBottom: 2,
                       backgroundColor: grey[800],
@@ -300,6 +318,11 @@ const CalendarModal: React.FC<DrawerProps> = ({ showDrawer, onClose, open }) => 
                       <Typography sx={{ fontSize: '0.8rem', color: '#44f814' }}>
                         {`Duration: ${event.duration} min`}
                       </Typography>
+                      {event.distance_km !== undefined && (
+                        <Typography sx={{ fontSize: '0.8rem', color: '#44f814' }}>
+                          {`Distance: ${event.distance_km} km`}
+                        </Typography>
+                      )}
                     </Box>
                     <Typography
                       sx={{
@@ -311,16 +334,18 @@ const CalendarModal: React.FC<DrawerProps> = ({ showDrawer, onClose, open }) => 
                       {`${event.calories} kcal`}
                     </Typography>
 
-                    <LoadingButton
-                      isLoading={false}
-                      onClick={() => handleCancelWorkout(event.id)}
-                      label=""
-                      icon={<DeleteIcon />}
-                      borderColor="border-none"
-                      borderWidth="border-none"
-                      bgColor="bg-transparent"
-                      color="text-red-500"
+                    {event.source === 'workout' && (
+                      <LoadingButton
+                        isLoading={false}
+                        onClick={() => handleCancelWorkout(event.id)}
+                        label=""
+                        icon={<DeleteIcon />}
+                        borderColor="border-none"
+                        borderWidth="border-none"
+                        bgColor="bg-transparent"
+                        color="text-red-500"
                       />
+                    )}
                   </Box>
                 ))}
 
@@ -334,7 +359,7 @@ const CalendarModal: React.FC<DrawerProps> = ({ showDrawer, onClose, open }) => 
                 .filter((event) => dayjs(event.date).isBefore(today))
                 .map((event: Event) => (
                   <Box
-                    key={event.date}
+                    key={event.id}
                     sx={{
                       marginBottom: 2,
                       backgroundColor: grey[800],
@@ -353,6 +378,11 @@ const CalendarModal: React.FC<DrawerProps> = ({ showDrawer, onClose, open }) => 
                       <Typography sx={{ fontSize: '0.8rem', color: '#44f814' }}>
                         {`Duration: ${event.duration} min`}
                       </Typography>
+                      {event.distance_km !== undefined && (
+                        <Typography sx={{ fontSize: '0.8rem', color: '#44f814' }}>
+                          {`Distance: ${event.distance_km} km`}
+                        </Typography>
+                      )}
                     </Box>
                     <Typography
                       sx={{

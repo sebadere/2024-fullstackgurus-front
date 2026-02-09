@@ -3,12 +3,12 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from  "firebase/auth";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDIBZB99FwGwnaxcB_q93NoMqTeB0fmh4I",
-  authDomain: "trainmate-7ae2b.firebaseapp.com",
-  projectId: "trainmate-7ae2b",
-  storageBucket: "trainmate-7ae2b.appspot.com",
-  messagingSenderId: "64842776503",
-  appId: "1:64842776503:web:94ce0ce53673f2e6987232"
+  apiKey: "AIzaSyAim0J8DD_t7TlU4fEwvKe0NSxn3dexSxo",
+  authDomain: "trainmate-55d36.firebaseapp.com",
+  projectId: "trainmate-55d36",
+  storageBucket: "trainmate-55d36.firebasestorage.app",
+  messagingSenderId: "658998131458",
+  appId: "1:658998131458:web:c3e383597640181a09a01b"
 };
 
 // Initialize Firebase

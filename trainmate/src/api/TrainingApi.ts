@@ -53,7 +53,7 @@ export const getTrainings = async () => {
     }
   };
 
-  export const saveTraining = async (trainingData: { exercises: any, name: string}) => {
+export const saveTraining = async (trainingData: { exercises: any, name: string}) => {
     
     const token = getAuthToken();
     if (!token) throw new Error('Token no encontrado');
@@ -106,4 +106,47 @@ export const getTrainings = async () => {
       console.error('Error al guardar el entrenamiento:', error);
       throw error;
     }
-  };
+  }; 
+
+export const adaptTraining = async (payload: { exercises: string[], available_equipment: string[] }) => {
+  const token = getAuthToken();
+  if (!token) throw new Error('Token no encontrado');
+
+  try {
+    const response = await fetch(`${BASE_URL}/api/trainings/adapt`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': token,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (response.status === 403 || response.status === 401) {
+      const newToken = await refreshAuthToken();
+      const retryResponse = await fetch(`${BASE_URL}/api/trainings/adapt`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${newToken}`,
+        },
+        body: JSON.stringify(payload),
+      });
+      if (!retryResponse.ok) {
+        const errorData = await retryResponse.json();
+        throw new Error(errorData.error || 'Error al adaptar el entrenamiento');
+      }
+      return await retryResponse.json();
+    }
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Error al adaptar el entrenamiento');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error al adaptar el entrenamiento:', error);
+    throw error;
+  }
+};
