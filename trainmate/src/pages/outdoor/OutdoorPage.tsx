@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Button, Card, CardContent, CardHeader, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, InputLabel, MenuItem, Select, TextField, Typography } from '@mui/material';
+import { Box, Button, Card, CardContent, CardHeader, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, IconButton, InputLabel, MenuItem, Select, TextField, Typography } from '@mui/material';
+import { ArrowBack as ArrowLeftIcon } from '@mui/icons-material';
 import { grey } from '@mui/material/colors';
+import { useNavigate } from 'react-router-dom';
 import { addOutdoorWorkout, getOutdoorWorkouts, OutdoorWorkoutPayload } from '../../api/OutdoorWorkoutsApi';
 import { FIELD_LIMITS } from '../../constants';
 import LoadingButton from '../../personalizedComponents/buttons/LoadingButton';
@@ -34,6 +36,7 @@ const OUTDOOR_BOUNDS = {
 } as const;
 
 const OutdoorPage: React.FC = () => {
+  const navigate = useNavigate();
   const [workouts, setWorkouts] = useState<OutdoorWorkout[]>([]);
   const [loading, setLoading] = useState(false);
   const [openDialog, setOpenDialog] = useState(false);
@@ -67,6 +70,10 @@ const OutdoorPage: React.FC = () => {
   useEffect(() => {
     fetchWorkouts();
   }, []);
+
+  const handleBackToHome = () => {
+    navigate('/homepage');
+  };
 
   const handleOpenDialog = () => {
     setOpenDialog(true);
@@ -116,8 +123,20 @@ const OutdoorPage: React.FC = () => {
       <TopMiddleAlert alertText='Outdoor session saved' open={alertOpen} onClose={() => setAlertOpen(false)} severity='success' />
       <TopMiddleAlert alertText='Please fill all required fields' open={alertErrorOpen} onClose={() => setAlertErrorOpen(false)} severity='warning' />
 
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-        <Typography variant="h4" sx={{ fontSize: { xs: '1.5rem', md: '2rem' } }}>
+      <Box component="header" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <IconButton component="a" sx={{ color: 'white' }} onClick={handleBackToHome}>
+            <ArrowLeftIcon />
+          </IconButton>
+          <img
+            src={require('../../images/logo.png')}
+            alt="Logo"
+            width={200}
+            height={150}
+            className="hidden md:block"
+          />
+        </Box>
+        <Typography variant="h4" sx={{ fontSize: { xs: '1.2rem', sm: '1.6rem', md: '2rem' } }}>
           Outdoor Workouts
         </Typography>
         <Button variant="outlined" sx={{ color: grey[50], borderColor: grey[700] }} onClick={handleOpenDialog}>
