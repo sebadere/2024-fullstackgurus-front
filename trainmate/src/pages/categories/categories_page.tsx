@@ -79,6 +79,8 @@ export default function CategoriesPage() {
 
   const navigate = useNavigate();
   const effectRan = useRef(false);
+  const addExerciseImageInputRef = useRef<HTMLInputElement | null>(null);
+  const editExerciseImageInputRef = useRef<HTMLInputElement | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [categoryWithExercises, setCategoryWithExercises] = useState<CategoryWithExercises[]>([]);
@@ -178,7 +180,10 @@ export default function CategoriesPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setImageFile(e.target.files[0]); // Store the selected image file
+      return;
     }
+    // User canceled the picker (or cleared the selection).
+    setImageFile(null);
   };
 
   const handleCategoryDataToDelete = (categoryId: string) => {
@@ -323,7 +328,10 @@ export default function CategoriesPage() {
   const handleCloseAddExerciseDialog = () => {
     setAddExerciseDialogOpen(false);
     setNewExercise(null);
-    setImageFile(null)
+    setImageFile(null);
+    setUploading(false);
+    setLoadingButton(false);
+    if (addExerciseImageInputRef.current) addExerciseImageInputRef.current.value = '';
   };
 
   const handleOpenEditCategoryDialog = (category: Category) => {
@@ -342,6 +350,10 @@ export default function CategoriesPage() {
   const handleCloseEditExerciseDialog = () => {
     setEditExerciseDialogOpen(false);
     setEditingExercise(null);
+    setImageFile(null);
+    setUploading(false);
+    setLoadingButton(false);
+    if (editExerciseImageInputRef.current) editExerciseImageInputRef.current.value = '';
   };
 
   const handleAddCategory = async () => {
@@ -374,68 +386,62 @@ export default function CategoriesPage() {
 
 
   const handleAddExercise = async () => {
-    if (newExercise) {
-      if (imageFile) {
-        setUploading(true);
-        setLoadingButton(true) // Show loading indicator
-        setLoadingButton(true)
-        const storage = getStorage();
-        const storageRef = ref(storage, `exercises/${imageFile.name}`);
+    if (!newExercise) return;
+    if (!imageFile) {
+      setAlertExerciseFillFieldsOpen(true);
+      return;
+    }
 
-        // Upload the image to Firebase Storage
-        await uploadBytes(storageRef, imageFile);
-
-        // Get the download URL for the uploaded image
-        const image_url = await getDownloadURL(storageRef);
-
-
-        const exerciseToSave = {
-          ...newExercise,
-          training_muscle: newExercise.training_muscle || 'Fullbody',
-          image_url,
-          equipment_required: newExercise.equipment_required || ['NONE'],
-          alternative_exercise_ids: newExercise.alternative_exercise_ids || [],
-        };
-
-        if (exerciseToSave.name && exerciseToSave.calories_per_hour && exerciseToSave.category_id && exerciseToSave.training_muscle) {
-          try {
-            const exercise = await saveExercise(exerciseToSave);
-            setImageFile(null);
-            setUploading(false);
-            setCategoryWithExercises(
-              categoryWithExercises.map((category) => {
-                if (category.id === exerciseToSave.category_id) {
-                  return {
-                    ...category,
-                    exercises: [
-                      ...category.exercises,
-                      exercise
-                    ],
-                  };
-                }
-                return category;
-              })
-            );
-            setNewExercise(null);
-            setAlertExerciseAddedOpen(true);
-            setLoadingButton(false);
-            localStorage.removeItem('categories');
-            localStorage.removeItem('categories_with_exercises');
-          } catch (error) {
-            console.error('Error al guardar el ejercicio:', error);
-            setLoadingButton(false)
-          }
-          handleCloseAddExerciseDialog();
-          setLoadingButton(false)
-        }
-        else {
-          setAlertExerciseFillFieldsOpen(true);
-        }
-      }
-      else {
-        setAlertExerciseFillFieldsOpen(true);
-      }
+    const exerciseToValidate = {
+      ...newExercise,
+      training_muscle: newExercise.training_muscle || 'Fullbody',
+      equipment_required: newExercise.equipment_required || ['NONE'],
+      alternative_exercise_ids: newExercise.alternative_exercise_ids || [],
     };
+
+    if (!exerciseToValidate.name || !exerciseToValidate.calories_per_hour || !exerciseToValidate.category_id || !exerciseToValidate.training_muscle) {
+      setAlertExerciseFillFieldsOpen(true);
+      return;
+    }
+
+    setUploading(true);
+    setLoadingButton(true);
+    try {
+      const storage = getStorage();
+      const storageRef = ref(storage, `exercises/${imageFile.name}`);
+
+      await uploadBytes(storageRef, imageFile);
+      const image_url = await getDownloadURL(storageRef);
+
+      const exerciseToSave = {
+        ...exerciseToValidate,
+        image_url,
+      };
+
+      const exercise = await saveExercise(exerciseToSave);
+
+      setCategoryWithExercises(
+        categoryWithExercises.map((category) => {
+          if (category.id === exerciseToSave.category_id) {
+            return {
+              ...category,
+              exercises: [...category.exercises, exercise],
+            };
+          }
+          return category;
+        })
+      );
+
+      setAlertExerciseAddedOpen(true);
+      localStorage.removeItem('categories');
+      localStorage.removeItem('categories_with_exercises');
+      handleCloseAddExerciseDialog();
+    } catch (error) {
+      console.error('Error al guardar el ejercicio:', error);
+    } finally {
+      setUploading(false);
+      setLoadingButton(false);
+    }
   }
 
   const handleEditCategory = async () => {
@@ -1139,8 +1145,8 @@ export default function CategoriesPage() {
               ))}
             </Select>
           </FormControl>
-          <InputLabel htmlFor="upload-image" sx={{ mt: 2, color: '#fff' }}>Upload Exercise Image</InputLabel>
-          <label htmlFor="upload-image" style={{ display: 'block', marginTop: '8px' }}>
+          <InputLabel htmlFor="upload-image-add" sx={{ mt: 2, color: '#fff' }}>Upload Exercise Image</InputLabel>
+          <label htmlFor="upload-image-add" style={{ display: 'block', marginTop: '8px' }}>
             <Button
               variant="contained"
               component="span"
@@ -1159,9 +1165,10 @@ export default function CategoriesPage() {
             </span>
             <input
               accept="image/*"
-              id="upload-image"
+              id="upload-image-add"
               type="file"
               onChange={handleFileChange}
+              ref={addExerciseImageInputRef}
               style={{ display: 'none' }} // Hide the default input button
             />
           </label>
@@ -1434,8 +1441,8 @@ export default function CategoriesPage() {
                   htmlInput: { min: 1, max: 4000 }
                 }}
               />
-              <InputLabel htmlFor="upload-image" sx={{ mt: 2, color: '#fff' }}>Edit Exercise Image</InputLabel>
-              <label htmlFor="upload-image" style={{ display: 'block', marginTop: '8px' }}>
+              <InputLabel htmlFor="upload-image-edit" sx={{ mt: 2, color: '#fff' }}>Edit Exercise Image</InputLabel>
+              <label htmlFor="upload-image-edit" style={{ display: 'block', marginTop: '8px' }}>
                 <Button
                   variant="contained"
                   component="span"
@@ -1454,9 +1461,10 @@ export default function CategoriesPage() {
                 </span>
                 <input
                   accept="image/*"
-                  id="upload-image"
+                  id="upload-image-edit"
                   type="file"
                   onChange={handleFileChange}
+                  ref={editExerciseImageInputRef}
                   style={{ display: 'none' }} // Hide the default input button
                 />
               </label>
