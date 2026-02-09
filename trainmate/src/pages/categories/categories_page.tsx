@@ -9,6 +9,7 @@ import { deleteExercise, editExercise, getExerciseFromCategory, saveExercise } f
 import { getTrainings } from '../../api/TrainingApi';
 import TopMiddleAlert from '../../personalizedComponents/TopMiddleAlert';
 import handleCategoryIcon from '../../personalizedComponents/handleCategoryIcon';
+import { FIELD_LIMITS } from '../../constants';
 import CreateTrainingDialog from './training_dialog';
 import AreYouSureAlert from '../../personalizedComponents/areYouSureAlert';
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -779,14 +780,18 @@ export default function CategoriesPage() {
             InputProps={{
               style: { color: '#fff' }, // Color del texto dentro del input
             }}
-            slotProps={{
-              htmlInput: { min: 1, max: 1000 }
-            }}
             type="text"
             fullWidth
             variant="standard"
             value={newCategory?.name || ''}
-            onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value, icon: newCategory?.icon || '' })}
+            onChange={(e) =>
+              setNewCategory({
+                ...newCategory,
+                name: e.target.value.slice(0, FIELD_LIMITS.categoryName),
+                icon: newCategory?.icon || '',
+              })
+            }
+            helperText={`${(newCategory?.name || '').length}/${FIELD_LIMITS.categoryName}`}
             sx={{ mb: 3 }}
           />
           <FormControl fullWidth margin="dense">
@@ -899,10 +904,17 @@ export default function CategoriesPage() {
             InputProps={{
               style: { color: '#fff' }, // Color del texto dentro del input
             }}
-            slotProps={{
-              htmlInput: { min: 1, max: 1000 }
-            }}
-            onChange={(e) => setNewExercise({ ...newExercise, name: e.target.value, calories_per_hour: newExercise?.calories_per_hour || 1, category_id: newExercise?.category_id || '', id: '', training_muscle: newExercise?.training_muscle || '' })}
+            onChange={(e) =>
+              setNewExercise({
+                ...newExercise,
+                name: e.target.value.slice(0, FIELD_LIMITS.exerciseName),
+                calories_per_hour: newExercise?.calories_per_hour || 1,
+                category_id: newExercise?.category_id || '',
+                id: '',
+                training_muscle: newExercise?.training_muscle || '',
+              })
+            }
+            helperText={`${(newExercise?.name || '').length}/${FIELD_LIMITS.exerciseName}`}
           />
           <TextField
             margin="dense"
@@ -1189,7 +1201,9 @@ export default function CategoriesPage() {
               fullWidth
               variant="standard"
               value={editingCategory.name}
-              onChange={(e) => setEditingCategory({ ...editingCategory, name: e.target.value })}
+              onChange={(e) =>
+                setEditingCategory({ ...editingCategory, name: e.target.value.slice(0, FIELD_LIMITS.categoryName) })
+              }
               sx={{ mb: 3 }}
               InputLabelProps={{
                 style: { color: '#fff' }, // Color del label (Duration)
@@ -1197,9 +1211,7 @@ export default function CategoriesPage() {
               InputProps={{
                 style: { color: '#fff' }, // Color del texto dentro del input
               }}
-              slotProps={{
-                htmlInput: { min: 1, max: 1000 }
-              }}
+              helperText={`${editingCategory.name.length}/${FIELD_LIMITS.categoryName}`}
             />
             <FormControl fullWidth margin="dense">
               <InputLabel id="icon-label">Icon</InputLabel>
@@ -1267,7 +1279,10 @@ export default function CategoriesPage() {
                 fullWidth
                 variant="standard"
                 value={editingExercise.name}
-                onChange={(e) => setEditingExercise({ ...editingExercise, name: e.target.value })}
+                onChange={(e) =>
+                  setEditingExercise({ ...editingExercise, name: e.target.value.slice(0, FIELD_LIMITS.exerciseName) })
+                }
+                helperText={`${(editingExercise.name || '').length}/${FIELD_LIMITS.exerciseName}`}
               />
               <FormControl fullWidth sx={{ marginTop: 2 }}>
                 <InputLabel id="muscle-label">Muscular Group</InputLabel>

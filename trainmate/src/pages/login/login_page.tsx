@@ -15,6 +15,7 @@ import DialogTitle from '@mui/material/DialogTitle';
 import TextField from '@mui/material/TextField';
 import TopMiddleAlert from '../../personalizedComponents/TopMiddleAlert';
 import { getUserProfile } from '../../api/UserAPI';
+import { FIELD_LIMITS } from '../../constants';
 
 export default function LogIn() {
   const [email, setEmail] = useState('');
@@ -26,8 +27,8 @@ export default function LogIn() {
   const [errorLoggingIn, setErrorLoggingIn] = useState(false);
   const [alertOpen, setAlertOpen] = useState(false);
 
-  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value);
-  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value);
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value.slice(0, FIELD_LIMITS.email));
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value.slice(0, FIELD_LIMITS.password));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -209,7 +210,7 @@ export default function LogIn() {
             type="email"
             fullWidth
             value={forgotEmail}
-            onChange={(e) => setForgotEmail(e.target.value)}
+            onChange={(e) => setForgotEmail(e.target.value.slice(0, FIELD_LIMITS.email))}
           />
         </DialogContent>
         <DialogActions>

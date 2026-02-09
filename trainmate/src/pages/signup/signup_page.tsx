@@ -12,6 +12,7 @@ import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { saveUserInfo } from '../../api/UserAPI';
 import { Input } from '@mui/material';
+import { FIELD_LIMITS } from '../../constants';
 
 export default function SignUp() {
   const provider = new GoogleAuthProvider();
@@ -28,10 +29,16 @@ export default function SignUp() {
 
   const handleChange = (e: any) => {
     const { id, name, value } = e.target;
+    const key = name || id;
+    let nextValue = value;
+
+    if (key === 'name') nextValue = String(value).slice(0, FIELD_LIMITS.fullName);
+    if (key === 'email') nextValue = String(value).slice(0, FIELD_LIMITS.email);
+    if (key === 'password') nextValue = String(value).slice(0, FIELD_LIMITS.password);
 
     setFormData((prevState) => ({
       ...prevState,
-      [name || id]: value,
+      [key]: nextValue,
     }));
   };
 

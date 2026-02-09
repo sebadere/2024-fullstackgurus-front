@@ -4,6 +4,7 @@ import grey from '@mui/material/colors/grey';
 import { adaptTraining, saveTraining } from '../../api/TrainingApi';
 import handleCategoryIcon from '../../personalizedComponents/handleCategoryIcon';
 import LoadingButton from '../../personalizedComponents/buttons/LoadingButton';
+import { FIELD_LIMITS } from '../../constants';
 
 interface Exercise {
   id: string;
@@ -75,13 +76,14 @@ const CreateTrainingDialog: React.FC<CreateTrainingDialogProps> = ({ createNewTr
   };
 
   const handleCreateTraining = async () => {
+    const trainingNameTrimmed = trainingName.trim();
     const selectedExerciseObjects = Object.keys(selectedExercises).reduce((allExercises, categoryId) => {
       const exercisesInCategory = categoryWithExercises.find(cat => cat.id === categoryId)?.exercises || [];
       const selectedObjects = selectedExercises[categoryId].map(exId => exercisesInCategory.find(ex => ex.id === exId)!).filter(Boolean);
       return [...allExercises, ...selectedObjects];
     }, [] as Exercise[]);
 
-    if (!trainingName) {
+    if (!trainingNameTrimmed) {
       return;
     }
 
@@ -116,7 +118,7 @@ const CreateTrainingDialog: React.FC<CreateTrainingDialogProps> = ({ createNewTr
       }
 
       const newTraining = {
-        name: trainingName,
+        name: trainingNameTrimmed,
         exercises: exercisesForSave,
       };
 
@@ -171,16 +173,14 @@ const CreateTrainingDialog: React.FC<CreateTrainingDialogProps> = ({ createNewTr
           fullWidth
           variant="standard"
           value={trainingName}
-          onChange={(e) => setTrainingName(e.target.value)}
+          onChange={(e) => setTrainingName(e.target.value.slice(0, FIELD_LIMITS.trainingName))}
           InputLabelProps={{
             style: { color: '#fff' }, // Color del label (Duration)
           }}
           InputProps={{
             style: { color: '#fff' }, // Color del texto dentro del input
           }}
-          slotProps={{
-            htmlInput: { min: 1, max: 1000 }
-          }}
+          helperText={`${trainingName.length}/${FIELD_LIMITS.trainingName}`}
         />
         <FormControlLabel
           control={

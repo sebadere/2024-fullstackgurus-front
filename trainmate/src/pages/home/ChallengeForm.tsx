@@ -4,6 +4,7 @@ import { grey } from '@mui/material/colors';
 import { saveGoal } from '../../api/GoalsApi';
 import dayjs from 'dayjs';
 import TopMiddleAlert from '../../personalizedComponents/TopMiddleAlert';
+import { FIELD_LIMITS } from '../../constants';
 
 interface ChallengeFormProps {
   isOpen: boolean;
@@ -25,14 +26,33 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({ isOpen, onCancel, onSave 
   // Handler for TextField changes
   const handleTextFieldChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target;
+    if (name === 'title') {
+      setFormData({ ...formData, [name]: value.slice(0, FIELD_LIMITS.goalTitle) });
+      return;
+    }
+    if (name === 'description') {
+      setFormData({ ...formData, [name]: value.slice(0, FIELD_LIMITS.goalDescription) });
+      return;
+    }
     setFormData({ ...formData, [name]: value });
   };
 
   const handleSave = async () => {
+    const title = formData.title.trim();
+    const description = formData.description.trim();
+
+    if (!title || !description || !formData.startDate || !formData.endDate) {
+      setAlertSaveGoalErrorMessage('Please complete all fields.');
+      setAlertSaveGoalErrorOpen(true);
+      return;
+    }
+
     setIsLoading(true);
     try {
       const formattedData = {
         ...formData,
+        title,
+        description,
         startDate: dayjs(formData.startDate).format('YYYY-MM-DD'),
         endDate: dayjs(formData.endDate).format('YYYY-MM-DD'),
       };
@@ -71,8 +91,10 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({ isOpen, onCancel, onSave 
               variant="outlined"
               value={formData.title}
               onChange={handleTextFieldChange}
+              required
               InputLabelProps={{ style: { color: '#fff' } }}
               InputProps={{ style: { color: '#fff', backgroundColor: grey[800] } }}
+              helperText={`${formData.title.length}/${FIELD_LIMITS.goalTitle}`}
               sx={{ mb: 3 }}
             />
             <TextField
@@ -84,8 +106,10 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({ isOpen, onCancel, onSave 
               rows={4}
               value={formData.description}
               onChange={handleTextFieldChange}
+              required
               InputLabelProps={{ style: { color: '#fff' } }}
               InputProps={{ style: { color: '#fff', backgroundColor: grey[800] } }}
+              helperText={`${formData.description.length}/${FIELD_LIMITS.goalDescription}`}
               sx={{ mb: 3 }}
             />
             <TextField
@@ -96,6 +120,7 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({ isOpen, onCancel, onSave 
               variant="outlined"
               value={formData.startDate}
               onChange={handleTextFieldChange}
+              required
               InputLabelProps={{ shrink: true, style: { color: '#fff' } }}
               InputProps={{ style: { color: '#fff', backgroundColor: grey[800] } }}
               sx={{ mb: 3 }}
@@ -108,6 +133,7 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({ isOpen, onCancel, onSave 
               variant="outlined"
               value={formData.endDate}
               onChange={handleTextFieldChange}
+              required
               InputLabelProps={{ shrink: true, style: { color: '#fff' } }}
               InputProps={{ style: { color: '#fff', backgroundColor: grey[800] } }}
               sx={{ mb: 3 }}

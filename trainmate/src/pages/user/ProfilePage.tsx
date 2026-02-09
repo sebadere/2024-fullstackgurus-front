@@ -14,6 +14,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Box from '@mui/material/Box';
 import Alert from '@mui/material/Alert';
 import TopMiddleAlert from '../../personalizedComponents/TopMiddleAlert';
+import { FIELD_LIMITS } from '../../constants';
 
 export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
@@ -116,6 +117,14 @@ export default function ProfilePage() {
   ) => {
     const { name, value } = e.target;
   
+    if (name === 'full_name') {
+      setUserProfile((prevProfile) => ({
+        ...prevProfile,
+        [name]: value.slice(0, FIELD_LIMITS.fullName),
+      }));
+      return;
+    }
+
     setUserProfile((prevProfile) => ({
       ...prevProfile,
       [name]: value,

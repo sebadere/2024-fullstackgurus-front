@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Box, Button, Card, CardContent, CardHeader, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, InputLabel, MenuItem, Select, TextField, Typography } from '@mui/material';
 import { grey } from '@mui/material/colors';
 import { addOutdoorWorkout, getOutdoorWorkouts, OutdoorWorkoutPayload } from '../../api/OutdoorWorkoutsApi';
+import { FIELD_LIMITS } from '../../constants';
 import LoadingButton from '../../personalizedComponents/buttons/LoadingButton';
 import TopMiddleAlert from '../../personalizedComponents/TopMiddleAlert';
 
@@ -24,6 +25,13 @@ const activityLabels: Record<ActivityType, string> = {
   HIKING: 'Hiking',
   WALKING: 'Walking',
 };
+
+const OUTDOOR_BOUNDS = {
+  durationMinutes: { min: 1, max: 600 },
+  distanceKm: { min: 0, max: 300 },
+  elevationGainM: { min: 0, max: 10000 },
+  calories: { min: 1, max: 5000 },
+} as const;
 
 const OutdoorPage: React.FC = () => {
   const [workouts, setWorkouts] = useState<OutdoorWorkout[]>([]);
@@ -69,13 +77,27 @@ const OutdoorPage: React.FC = () => {
   };
 
   const handleSave = async () => {
-    if (!formData.date || formData.duration_minutes <= 0 || formData.calories <= 0) {
+    const notes = (formData.notes || '').slice(0, FIELD_LIMITS.outdoorNotes);
+    const durationOk =
+      formData.duration_minutes >= OUTDOOR_BOUNDS.durationMinutes.min &&
+      formData.duration_minutes <= OUTDOOR_BOUNDS.durationMinutes.max;
+    const distanceOk =
+      (formData.distance_km ?? 0) >= OUTDOOR_BOUNDS.distanceKm.min &&
+      (formData.distance_km ?? 0) <= OUTDOOR_BOUNDS.distanceKm.max;
+    const elevationOk =
+      (formData.elevation_gain_m ?? 0) >= OUTDOOR_BOUNDS.elevationGainM.min &&
+      (formData.elevation_gain_m ?? 0) <= OUTDOOR_BOUNDS.elevationGainM.max;
+    const caloriesOk =
+      formData.calories >= OUTDOOR_BOUNDS.calories.min &&
+      formData.calories <= OUTDOOR_BOUNDS.calories.max;
+
+    if (!formData.date || !durationOk || !distanceOk || !elevationOk || !caloriesOk) {
       setAlertErrorOpen(true);
       return;
     }
     try {
       setLoading(true);
-      await addOutdoorWorkout(formData);
+      await addOutdoorWorkout({ ...formData, notes });
       setAlertOpen(true);
       handleCloseDialog();
       await fetchWorkouts();
@@ -153,15 +175,37 @@ const OutdoorPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      <Dialog open={openDialog} onClose={handleCloseDialog} fullWidth maxWidth="sm">
-        <DialogTitle>Add Outdoor Session</DialogTitle>
+      <Dialog
+        open={openDialog}
+        onClose={handleCloseDialog}
+        fullWidth
+        maxWidth="sm"
+        PaperProps={{
+          sx: {
+            backgroundColor: grey[800],
+            color: '#fff',
+            borderRadius: '8px',
+            padding: 2,
+          },
+        }}
+      >
+        <DialogTitle sx={{ color: '#fff' }}>Add Outdoor Session</DialogTitle>
         <DialogContent>
           <FormControl fullWidth sx={{ mt: 2 }}>
-            <InputLabel id="activity-type-label">Activity</InputLabel>
+            <InputLabel id="activity-type-label" sx={{ color: '#fff' }}>Activity</InputLabel>
             <Select
               labelId="activity-type-label"
               value={formData.activity_type}
               label="Activity"
+              sx={{ color: '#fff' }}
+              MenuProps={{
+                PaperProps: {
+                  sx: {
+                    backgroundColor: '#444',
+                    color: '#fff',
+                  },
+                },
+              }}
               onChange={(e) => setFormData({ ...formData, activity_type: e.target.value as ActivityType })}
             >
               <MenuItem value="RUNNING">Running</MenuItem>
@@ -177,6 +221,8 @@ const OutdoorPage: React.FC = () => {
             type="date"
             fullWidth
             InputLabelProps={{ shrink: true }}
+            InputProps={{ style: { color: '#fff' } }}
+            sx={{ '& .MuiInputLabel-root': { color: '#fff' } }}
             value={formData.date}
             onChange={(e) => setFormData({ ...formData, date: e.target.value })}
           />
@@ -185,16 +231,22 @@ const OutdoorPage: React.FC = () => {
             label="Duration (minutes)"
             type="number"
             fullWidth
+            InputProps={{ style: { color: '#fff' } }}
+            sx={{ '& .MuiInputLabel-root': { color: '#fff' } }}
             value={formData.duration_minutes}
             onChange={(e) => setFormData({ ...formData, duration_minutes: Number(e.target.value) })}
+            slotProps={{ htmlInput: { min: OUTDOOR_BOUNDS.durationMinutes.min, max: OUTDOOR_BOUNDS.durationMinutes.max } }}
           />
           <TextField
             margin="dense"
             label="Distance (km)"
             type="number"
             fullWidth
+            InputProps={{ style: { color: '#fff' } }}
+            sx={{ '& .MuiInputLabel-root': { color: '#fff' } }}
             value={formData.distance_km ?? 0}
             onChange={(e) => setFormData({ ...formData, distance_km: Number(e.target.value) })}
+            slotProps={{ htmlInput: { min: OUTDOOR_BOUNDS.distanceKm.min, max: OUTDOOR_BOUNDS.distanceKm.max } }}
           />
           {formData.activity_type === 'HIKING' && (
             <TextField
@@ -202,8 +254,11 @@ const OutdoorPage: React.FC = () => {
               label="Elevation Gain (m)"
               type="number"
               fullWidth
+              InputProps={{ style: { color: '#fff' } }}
+              sx={{ '& .MuiInputLabel-root': { color: '#fff' } }}
               value={formData.elevation_gain_m ?? 0}
               onChange={(e) => setFormData({ ...formData, elevation_gain_m: Number(e.target.value) })}
+              slotProps={{ htmlInput: { min: OUTDOOR_BOUNDS.elevationGainM.min, max: OUTDOOR_BOUNDS.elevationGainM.max } }}
             />
           )}
           <TextField
@@ -211,16 +266,26 @@ const OutdoorPage: React.FC = () => {
             label="Calories"
             type="number"
             fullWidth
+            InputProps={{ style: { color: '#fff' } }}
+            sx={{ '& .MuiInputLabel-root': { color: '#fff' } }}
             value={formData.calories}
             onChange={(e) => setFormData({ ...formData, calories: Number(e.target.value) })}
+            slotProps={{ htmlInput: { min: OUTDOOR_BOUNDS.calories.min, max: OUTDOOR_BOUNDS.calories.max } }}
           />
           <TextField
             margin="dense"
             label="Notes"
             type="text"
             fullWidth
+            InputProps={{ style: { color: '#fff' } }}
+            sx={{ '& .MuiInputLabel-root': { color: '#fff' } }}
             value={formData.notes}
-            onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+            onChange={(e) =>
+              setFormData({ ...formData, notes: e.target.value.slice(0, FIELD_LIMITS.outdoorNotes) })
+            }
+            multiline
+            minRows={3}
+            helperText={`${(formData.notes || '').length}/${FIELD_LIMITS.outdoorNotes}`}
           />
         </DialogContent>
         <DialogActions>
