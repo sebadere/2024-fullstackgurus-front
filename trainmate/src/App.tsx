@@ -9,6 +9,7 @@ import ProfilePage from './pages/user/ProfilePage';
 import CategoriesPage from './pages/categories/categories_page';
 import CalendarPage from './pages/calendar/CalendarPage';
 import PhysicalProgressPage from './pages/physical_progress/physical_progress_page';
+import OutdoorPage from './pages/outdoor/OutdoorPage';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
@@ -67,6 +68,11 @@ function App() {
         <Route 
           path="/physicalprogress" 
           element={isAuthenticated ? <PhysicalProgressPage /> : <Navigate to="/login" />} 
+        />
+
+        <Route 
+          path="/outdoor" 
+          element={isAuthenticated ? <OutdoorPage /> : <Navigate to="/login" />} 
         />
         
         {/* Redirect any unknown routes to login if not authenticated */}

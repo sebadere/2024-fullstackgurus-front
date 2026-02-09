@@ -45,6 +45,9 @@ interface Exercise {
   owner: string;
   public: boolean;
   training_muscle: string;
+  image_url?: string;
+  equipment_required?: string[];
+  alternative_exercise_ids?: string[];
 }
 
 interface NewCategory {
@@ -58,6 +61,8 @@ interface NewExercise {
   calories_per_hour: number | string;
   name: string;
   category_id: string;
+  equipment_required?: string[];
+  alternative_exercise_ids?: string[];
 }
 
 interface Trainings {
@@ -69,6 +74,7 @@ interface Trainings {
 }
 
 export default function CategoriesPage() {
+  const EQUIPMENT_OPTIONS = ['NONE', 'HOUSEHOLD', 'DUMBBELLS', 'BANDS', 'KETTLEBELL', 'BARBELL', 'MACHINE', 'CARDIO', 'UNKNOWN'];
 
   const navigate = useNavigate();
   const effectRan = useRef(false);
@@ -118,10 +124,34 @@ export default function CategoriesPage() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   const [openRankingModal, setOpenRankingModal] = useState(false);
+  const [equipmentFilter, setEquipmentFilter] = useState<'ALL' | 'NONE' | 'HOUSEHOLD'>('ALL');
 
 
   const handleCloseRankingModal = () => {
     setOpenRankingModal(false);
+  };
+
+  const normalizeEquipment = (equipment: string[] | undefined) => {
+    if (!equipment || !Array.isArray(equipment)) return [];
+    return equipment.map((item) => (typeof item === 'string' ? item.toUpperCase() : '')).filter(Boolean);
+  };
+
+  const isExerciseCompatibleWithFilter = (exercise: Exercise) => {
+    if (equipmentFilter === 'ALL') return true;
+    const equipment = normalizeEquipment(exercise.equipment_required);
+    if (equipmentFilter === 'NONE') {
+      return equipment.includes('NONE');
+    }
+    if (equipmentFilter === 'HOUSEHOLD') {
+      return equipment.includes('HOUSEHOLD') || equipment.includes('NONE');
+    }
+    return true;
+  };
+
+  const getEquipmentBadge = (exercise: Exercise) => {
+    const equipment = normalizeEquipment(exercise.equipment_required);
+    if (!equipment.length) return 'UNKNOWN';
+    return equipment.join(', ');
   };
 
   // Function to handle opening the image modal
@@ -274,7 +304,16 @@ export default function CategoriesPage() {
   };
 
   const handleOpenAddExerciseDialog = (categoryId: string) => {
-    setNewExercise({ ...newExercise, category_id: categoryId, calories_per_hour: newExercise?.calories_per_hour || 0, name: newExercise?.name || '', id: '', training_muscle: '' });
+    setNewExercise({
+      ...newExercise,
+      category_id: categoryId,
+      calories_per_hour: newExercise?.calories_per_hour || 0,
+      name: newExercise?.name || '',
+      id: '',
+      training_muscle: newExercise?.training_muscle || '',
+      equipment_required: newExercise?.equipment_required || ['NONE'],
+      alternative_exercise_ids: newExercise?.alternative_exercise_ids || [],
+    });
     setAddExerciseDialogOpen(true);
   };
   const handleCloseAddExerciseDialog = () => {
@@ -349,7 +388,9 @@ export default function CategoriesPage() {
         const exerciseToSave = {
           ...newExercise,
           training_muscle: newExercise.training_muscle || 'Fullbody',
-          image_url
+          image_url,
+          equipment_required: newExercise.equipment_required || ['NONE'],
+          alternative_exercise_ids: newExercise.alternative_exercise_ids || [],
         };
 
         if (exerciseToSave.name && exerciseToSave.calories_per_hour && exerciseToSave.category_id && exerciseToSave.training_muscle) {
@@ -435,6 +476,8 @@ export default function CategoriesPage() {
             calories_per_hour: editingExercise.calories_per_hour,
             training_muscle: editingExercise.training_muscle,
             image_url,
+            equipment_required: editingExercise.equipment_required || ['NONE'],
+            alternative_exercise_ids: editingExercise.alternative_exercise_ids || [],
           },
           editingExercise.id
         );
@@ -481,6 +524,13 @@ export default function CategoriesPage() {
   const handleTrophyButton = () => {
     setOpenRankingModal(true);
   };
+
+  const allExercises = categoryWithExercises.flatMap((category) =>
+    category.exercises.map((exercise) => ({
+      ...exercise,
+      category_name: category.name,
+    }))
+  );
 
   return (
     <Box sx={{ 'backgroundColor': 'black', color: 'white', p: 4 }}  >
@@ -546,6 +596,28 @@ export default function CategoriesPage() {
                 }
               />
               <CardContent>
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+                  <FormControl size="small" sx={{ minWidth: 200 }}>
+                    <InputLabel id="equipment-filter" sx={{ color: '#fff' }}>Equipment Filter</InputLabel>
+                    <Select
+                      labelId="equipment-filter"
+                      id="equipment-filter"
+                      label="Equipment Filter"
+                      value={equipmentFilter}
+                      onChange={(e) => setEquipmentFilter(e.target.value as 'ALL' | 'NONE' | 'HOUSEHOLD')}
+                      sx={{
+                        color: '#fff',
+                        '& .MuiOutlinedInput-notchedOutline': { borderColor: '#fff' },
+                        '& .MuiSvgIcon-root': { color: '#fff' },
+                      }}
+                      MenuProps={{ PaperProps: { sx: { backgroundColor: '#444', color: '#fff' } } }}
+                    >
+                      <MenuItem value="ALL">All</MenuItem>
+                      <MenuItem value="NONE">No Equipment</MenuItem>
+                      <MenuItem value="HOUSEHOLD">Household</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Box>
                 <Box sx={{ height: 'calc(102vh - 300px)', overflowY: 'auto' }}>
                   {categoryWithExercises.map((category) => (
                     <Accordion key={category.id} sx={{ backgroundColor: "#161616", color: 'white' }} className='border border-gray-600'>
@@ -571,12 +643,13 @@ export default function CategoriesPage() {
                       </AccordionSummary>
                       <AccordionDetails>
                         <Box sx={{ pl: 4 }}>
-                          {category.exercises.map((exercise: any) => (
+                          {category.exercises.filter((exercise: Exercise) => isExerciseCompatibleWithFilter(exercise)).map((exercise: Exercise) => (
                             <Box key={exercise.id} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                               <Box sx={{ display: 'flex', alignItems: 'center' }}>
                                 <Typography>{exercise.name}</Typography>
                                 <Typography sx={{ fontSize: '0.7rem', marginLeft: 3 }}>({exercise.training_muscle})</Typography>
                                 <Typography sx={{ fontSize: '0.7rem', marginLeft: 3 }}>({exercise.calories_per_hour} kcal/h)</Typography>
+                                <Typography sx={{ fontSize: '0.7rem', marginLeft: 3 }}>[{getEquipmentBadge(exercise)}]</Typography>
                               </Box>
                               <Box>
                                 {!exercise.public && (
@@ -588,7 +661,7 @@ export default function CategoriesPage() {
                                       <DeleteIcon />
                                     </IconButton>
                                     {exercise.image_url && (
-                                      <IconButton size="small" color="inherit" onClick={() => handleOpenImageModal(exercise.image_url)}>
+                                      <IconButton size="small" color="inherit" onClick={() => exercise.image_url && handleOpenImageModal(exercise.image_url)}>
                                         <EyeIcon />
                                       </IconButton>
                                     )}
@@ -947,6 +1020,102 @@ export default function CategoriesPage() {
             </Select>
 
           </FormControl>
+          <FormControl fullWidth sx={{ marginTop: 2 }}>
+            <InputLabel id="equipment-required-label">Equipment Required</InputLabel>
+            <Select
+              labelId="equipment-required-label"
+              id="equipment-required"
+              multiple
+              value={newExercise?.equipment_required || ['NONE']}
+              onChange={(e) =>
+                setNewExercise({
+                  ...newExercise,
+                  equipment_required: e.target.value as string[],
+                  name: newExercise?.name || '',
+                  calories_per_hour: newExercise?.calories_per_hour || 1,
+                  category_id: newExercise?.category_id || '',
+                  training_muscle: newExercise?.training_muscle || 'Fullbody',
+                  id: '',
+                  alternative_exercise_ids: newExercise?.alternative_exercise_ids || [],
+                })
+              }
+              label="Equipment Required"
+              renderValue={(selected) => (selected as string[]).join(', ')}
+              MenuProps={{
+                PaperProps: {
+                  sx: {
+                    maxWidth: 300,
+                    backgroundColor: '#444',
+                    color: '#fff',
+                    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#fff' },
+                    '& .MuiSvgIcon-root': { color: '#fff' },
+                  },
+                },
+              }}
+              sx={{
+                marginBottom: 1,
+                color: '#fff',
+                '& .MuiOutlinedInput-notchedOutline': { borderColor: '#fff' },
+                '& .MuiSvgIcon-root': { color: '#fff' },
+              }}
+            >
+              {EQUIPMENT_OPTIONS.map((option) => (
+                <MenuItem key={option} value={option}>
+                  {option}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <FormControl fullWidth sx={{ marginTop: 2 }}>
+            <InputLabel id="alternatives-label">Alternative Exercises</InputLabel>
+            <Select
+              labelId="alternatives-label"
+              id="alternatives"
+              multiple
+              value={newExercise?.alternative_exercise_ids || []}
+              onChange={(e) =>
+                setNewExercise({
+                  ...newExercise,
+                  alternative_exercise_ids: e.target.value as string[],
+                  name: newExercise?.name || '',
+                  calories_per_hour: newExercise?.calories_per_hour || 1,
+                  category_id: newExercise?.category_id || '',
+                  training_muscle: newExercise?.training_muscle || 'Fullbody',
+                  id: '',
+                  equipment_required: newExercise?.equipment_required || ['NONE'],
+                })
+              }
+              label="Alternative Exercises"
+              renderValue={(selected) =>
+                (selected as string[])
+                  .map((id) => allExercises.find((ex) => ex.id === id)?.name || id)
+                  .join(', ')
+              }
+              MenuProps={{
+                PaperProps: {
+                  sx: {
+                    maxWidth: 320,
+                    backgroundColor: '#444',
+                    color: '#fff',
+                    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#fff' },
+                    '& .MuiSvgIcon-root': { color: '#fff' },
+                  },
+                },
+              }}
+              sx={{
+                marginBottom: 1,
+                color: '#fff',
+                '& .MuiOutlinedInput-notchedOutline': { borderColor: '#fff' },
+                '& .MuiSvgIcon-root': { color: '#fff' },
+              }}
+            >
+              {allExercises.map((exercise) => (
+                <MenuItem key={exercise.id} value={exercise.id}>
+                  {exercise.name} ({exercise.category_name})
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
           <InputLabel htmlFor="upload-image" sx={{ mt: 2, color: '#fff' }}>Upload Exercise Image</InputLabel>
           <label htmlFor="upload-image" style={{ display: 'block', marginTop: '8px' }}>
             <Button
@@ -1128,6 +1297,76 @@ export default function CategoriesPage() {
                   ))}
                 </Select>
               </FormControl>
+              <FormControl fullWidth sx={{ marginTop: 2 }}>
+                <InputLabel id="edit-equipment-required-label">Equipment Required</InputLabel>
+                <Select
+                  labelId="edit-equipment-required-label"
+                  id="edit-equipment-required"
+                  multiple
+                  value={editingExercise.equipment_required || ['NONE']}
+                  onChange={(e) =>
+                    setEditingExercise({
+                      ...editingExercise,
+                      equipment_required: e.target.value as string[],
+                    })
+                  }
+                  label="Equipment Required"
+                  renderValue={(selected) => (selected as string[]).join(', ')}
+                  MenuProps={{
+                    PaperProps: {
+                      sx: {
+                        maxWidth: 300,
+                        backgroundColor: '#444',
+                        color: '#fff',
+                      },
+                    },
+                  }}
+                >
+                  {EQUIPMENT_OPTIONS.map((option) => (
+                    <MenuItem key={option} value={option}>
+                      {option}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <FormControl fullWidth sx={{ marginTop: 2 }}>
+                <InputLabel id="edit-alternatives-label">Alternative Exercises</InputLabel>
+                <Select
+                  labelId="edit-alternatives-label"
+                  id="edit-alternatives"
+                  multiple
+                  value={editingExercise.alternative_exercise_ids || []}
+                  onChange={(e) =>
+                    setEditingExercise({
+                      ...editingExercise,
+                      alternative_exercise_ids: e.target.value as string[],
+                    })
+                  }
+                  label="Alternative Exercises"
+                  renderValue={(selected) =>
+                    (selected as string[])
+                      .map((id) => allExercises.find((ex) => ex.id === id)?.name || id)
+                      .join(', ')
+                  }
+                  MenuProps={{
+                    PaperProps: {
+                      sx: {
+                        maxWidth: 320,
+                        backgroundColor: '#444',
+                        color: '#fff',
+                      },
+                    },
+                  }}
+                >
+                  {allExercises
+                    .filter((exercise) => exercise.id !== editingExercise.id)
+                    .map((exercise) => (
+                      <MenuItem key={exercise.id} value={exercise.id}>
+                        {exercise.name} ({exercise.category_name})
+                      </MenuItem>
+                    ))}
+                </Select>
+              </FormControl>
               <TextField
                 margin="dense"
                 id="edit-exercise-calories"
@@ -1226,4 +1465,3 @@ export default function CategoriesPage() {
     </Box >
   );
 }
-

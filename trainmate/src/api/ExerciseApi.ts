@@ -53,7 +53,7 @@ export const getExerciseFromCategory = async (category_id: String) => {
     }
   }
 
-  export const saveExercise = async (exerciseData: { name: string, calories_per_hour: number | string, category_id: string, training_muscle: string, image_url: string }) => {
+  export const saveExercise = async (exerciseData: { name: string, calories_per_hour: number | string, category_id: string, training_muscle: string, image_url: string, equipment_required?: string[], alternative_exercise_ids?: string[] }) => {
     
     const token = getAuthToken();
     if (!token) throw new Error('Token no encontrado');
@@ -106,7 +106,7 @@ export const getExerciseFromCategory = async (category_id: String) => {
     }
   };
 
-export const editExercise = async (exerciseData: { name: string, calories_per_hour: number | string, training_muscle: string, image_url: string }, exercise_id: string) => {
+export const editExercise = async (exerciseData: { name: string, calories_per_hour: number | string, training_muscle: string, image_url: string, equipment_required?: string[], alternative_exercise_ids?: string[] }, exercise_id: string) => {
         
         console.log(exerciseData)
         const token = getAuthToken();

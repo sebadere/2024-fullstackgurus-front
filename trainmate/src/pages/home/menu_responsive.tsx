@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import GoalsModal from '../goals/Goals';
 import ChallengeForm from './ChallengeForm';
 import OutlinedFlagIcon from '@mui/icons-material/OutlinedFlag';
+import DirectionsRunIcon from '@mui/icons-material/DirectionsRun';
 
 interface ResponsiveMenuProps {
   handleFilterOpen: () => void;
@@ -50,6 +51,10 @@ const ResponsiveMenu: React.FC<ResponsiveMenuProps> = ({ handleFilterOpen, handl
 
   const handlePhysicalProgressOpen = () => {
     navigate('/physicalprogress');
+  }
+
+  const handleOutdoorOpen = () => {
+    navigate('/outdoor');
   }
 
   const openForm = () => {
@@ -113,6 +118,10 @@ const ResponsiveMenu: React.FC<ResponsiveMenuProps> = ({ handleFilterOpen, handl
               <CalendarMonthIcon sx={{ color: grey[50], fontSize: 40 }} />
               <ListItemText primary="See Agenda" sx={{ marginLeft: 2 }} />
             </ListItem>
+            <ListItem onClick={handleOutdoorOpen}>
+              <DirectionsRunIcon sx={{ color: grey[50], fontSize: 40 }} />
+              <ListItemText primary="Outdoor" sx={{ marginLeft: 2 }} />
+            </ListItem>
           </List>
         </Box>
       </Drawer>
@@ -138,6 +147,10 @@ const ResponsiveMenu: React.FC<ResponsiveMenuProps> = ({ handleFilterOpen, handl
         <IconButton aria-label="calendar" onClick={showDrawer}>
           <CalendarMonthIcon sx={{ color: grey[50], fontSize: 40 }} />
           <p className='p-3 text-white'>See Agenda</p>
+        </IconButton>
+        <IconButton aria-label="outdoor" onClick={handleOutdoorOpen}>
+          <DirectionsRunIcon sx={{ color: grey[50], fontSize: 40 }} />
+          <p className='p-3 text-white'>Outdoor</p>
         </IconButton>
       </Box>
 
