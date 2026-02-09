@@ -140,6 +140,9 @@ export default function CategoriesPage() {
   const isExerciseCompatibleWithFilter = (exercise: Exercise) => {
     if (equipmentFilter === 'ALL') return true;
     const equipment = normalizeEquipment(exercise.equipment_required);
+    // Legacy exercises may not have `equipment_required` yet.
+    // Backend treats missing as compatible; keep UX consistent.
+    if (!equipment.length) return true;
     if (equipmentFilter === 'NONE') {
       return equipment.includes('NONE');
     }
@@ -149,9 +152,9 @@ export default function CategoriesPage() {
     return true;
   };
 
-  const getEquipmentBadge = (exercise: Exercise) => {
+  const getEquipmentBadge = (exercise: Exercise): string | null => {
     const equipment = normalizeEquipment(exercise.equipment_required);
-    if (!equipment.length) return 'UNKNOWN';
+    if (!equipment.length) return null;
     return equipment.join(', ');
   };
 
@@ -650,7 +653,12 @@ export default function CategoriesPage() {
                                 <Typography>{exercise.name}</Typography>
                                 <Typography sx={{ fontSize: '0.7rem', marginLeft: 3 }}>({exercise.training_muscle})</Typography>
                                 <Typography sx={{ fontSize: '0.7rem', marginLeft: 3 }}>({exercise.calories_per_hour} kcal/h)</Typography>
-                                <Typography sx={{ fontSize: '0.7rem', marginLeft: 3 }}>[{getEquipmentBadge(exercise)}]</Typography>
+                                {(() => {
+                                  const badge = getEquipmentBadge(exercise);
+                                  return badge ? (
+                                    <Typography sx={{ fontSize: '0.7rem', marginLeft: 3 }}>[{badge}]</Typography>
+                                  ) : null;
+                                })()}
                               </Box>
                               <Box>
                                 {!exercise.public && (
@@ -1037,12 +1045,13 @@ export default function CategoriesPage() {
             <Select
               labelId="equipment-required-label"
               id="equipment-required"
-              multiple
-              value={newExercise?.equipment_required || ['NONE']}
+              value={(newExercise?.equipment_required?.[0] || 'NONE')}
               onChange={(e) =>
                 setNewExercise({
                   ...newExercise,
-                  equipment_required: e.target.value as string[],
+                  // `equipment_required` is "what this exercise needs".
+                  // Adaptation works by swapping to alternative exercises with different requirements.
+                  equipment_required: [e.target.value as string],
                   name: newExercise?.name || '',
                   calories_per_hour: newExercise?.calories_per_hour || 1,
                   category_id: newExercise?.category_id || '',
@@ -1052,7 +1061,6 @@ export default function CategoriesPage() {
                 })
               }
               label="Equipment Required"
-              renderValue={(selected) => (selected as string[]).join(', ')}
               MenuProps={{
                 PaperProps: {
                   sx: {
@@ -1077,6 +1085,9 @@ export default function CategoriesPage() {
                 </MenuItem>
               ))}
             </Select>
+            <Typography sx={{ fontSize: '0.75rem', color: grey[300], mt: 0.5 }}>
+              Pick the minimum equipment needed for this exercise. For “adaptation”, create alternative exercises (e.g. BANDS / HOUSEHOLD) and link them below.
+            </Typography>
           </FormControl>
           <FormControl fullWidth sx={{ marginTop: 2 }}>
             <InputLabel id="alternatives-label">Alternative Exercises</InputLabel>
@@ -1317,16 +1328,14 @@ export default function CategoriesPage() {
                 <Select
                   labelId="edit-equipment-required-label"
                   id="edit-equipment-required"
-                  multiple
-                  value={editingExercise.equipment_required || ['NONE']}
+                  value={(editingExercise.equipment_required?.[0] || 'NONE')}
                   onChange={(e) =>
                     setEditingExercise({
                       ...editingExercise,
-                      equipment_required: e.target.value as string[],
+                      equipment_required: [e.target.value as string],
                     })
                   }
                   label="Equipment Required"
-                  renderValue={(selected) => (selected as string[]).join(', ')}
                   MenuProps={{
                     PaperProps: {
                       sx: {
@@ -1343,6 +1352,9 @@ export default function CategoriesPage() {
                     </MenuItem>
                   ))}
                 </Select>
+                <Typography sx={{ fontSize: '0.75rem', color: grey[300], mt: 0.5 }}>
+                  Pick the minimum equipment needed. Alternatives should be separate exercises linked below.
+                </Typography>
               </FormControl>
               <FormControl fullWidth sx={{ marginTop: 2 }}>
                 <InputLabel id="edit-alternatives-label">Alternative Exercises</InputLabel>

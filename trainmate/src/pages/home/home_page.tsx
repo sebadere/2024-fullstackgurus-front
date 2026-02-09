@@ -29,7 +29,7 @@ import { FilterTrainingDialog } from './filter_training';
 import { Divider } from '@mui/material';
 import { top_exercises_done } from '../../functions/top_exercises_done';
 import DynamicBarChart from './bars_graph';
-import { getTrainings } from '../../api/TrainingApi';
+import { adaptTraining, getTrainings, saveTraining } from '../../api/TrainingApi';
 import { FilterCoachDialog } from './filter_coach';
 import WaterIntakeCard from './water_intake';
 import ResponsiveMenu from './menu_responsive';
@@ -78,6 +78,9 @@ interface Exercise {
   owner: string;
   public: boolean;
   training_muscle: string;
+  equipment_required?: string[];
+  alternative_exercise_ids?: string[];
+  exercise_id?: string; // trainings endpoint uses `exercise_id` for legacy reasons
 }
 
 interface CategoryWithExercises {
@@ -148,6 +151,46 @@ export default function HomePage() {
   const [loadingButton, setLoadingButton] = useState<boolean>(false)
   const [challengeModalOpen, setChallengeModalOpen] = useState(false)
   const [challengesList, setChallengesList] = useState<Challenges[]>([])
+
+  type EquipmentMode = 'OFF' | 'NONE' | 'HOUSEHOLD';
+  const [equipmentMode, setEquipmentMode] = useState<EquipmentMode>('OFF');
+  const [adaptingTraining, setAdaptingTraining] = useState(false);
+  const [adaptationPreview, setAdaptationPreview] = useState<{
+    adapted_exercises: any[];
+    replacements: { from: string; to: string }[];
+    missing: string[];
+  } | null>(null);
+  const [alertAdaptMissingOpen, setAlertAdaptMissingOpen] = useState(false);
+
+  const ADAPT_CACHE_KEY = 'adapted_training_cache_v1';
+
+  const exerciseIdOf = (exercise: any): string => {
+    return String(exercise?.exercise_id || exercise?.id || '');
+  };
+
+  const getAvailableEquipment = (mode: EquipmentMode): string[] => {
+    if (mode === 'NONE') return ['NONE'];
+    if (mode === 'HOUSEHOLD') return ['NONE', 'HOUSEHOLD'];
+    return [];
+  };
+
+  const runAdaptation = async (training: Trainings, mode: EquipmentMode) => {
+    const exerciseIds = (training.exercises || []).map(exerciseIdOf).filter(Boolean);
+    return await adaptTraining({ exercises: exerciseIds, available_equipment: getAvailableEquipment(mode) });
+  };
+
+  const getAdaptCache = (): Record<string, { training_id: string; name: string; createdAt: string }> => {
+    try {
+      const raw = localStorage.getItem(ADAPT_CACHE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  };
+
+  const setAdaptCache = (cache: Record<string, { training_id: string; name: string; createdAt: string }>) => {
+    localStorage.setItem(ADAPT_CACHE_KEY, JSON.stringify(cache));
+  };
 
   const handleChallengeModalClose = () => {
     setChallengeModalOpen(false)
@@ -365,6 +408,8 @@ export default function HomePage() {
     setExercises([]);
     setCoachSelected('');
     setSelectedTraining(null);
+    setEquipmentMode('OFF');
+    setAdaptationPreview(null);
     setNewWorkout({
       training_id: '',
       duration: '',
@@ -372,6 +417,22 @@ export default function HomePage() {
       date: new Date().toISOString().split('T')[0],
     });
   }
+
+  const handlePreviewAdaptation = async () => {
+    if (!selectedTraining || equipmentMode === 'OFF') return;
+    try {
+      setAdaptingTraining(true);
+      const preview = await runAdaptation(selectedTraining, equipmentMode);
+      setAdaptationPreview(preview);
+      if (Array.isArray(preview?.missing) && preview.missing.length) {
+        setAlertAdaptMissingOpen(true);
+      }
+    } catch (e) {
+      console.error('Error adapting training:', e);
+    } finally {
+      setAdaptingTraining(false);
+    }
+  };
 
   const handleAddWorkout = async () => {
     if (newWorkout.training_id && newWorkout.duration && newWorkout.date) {
@@ -387,8 +448,63 @@ export default function HomePage() {
       try {
         const token = localStorage.getItem('token');
         if (token) {
+          let trainingIdToUse = newWorkout.training_id;
+
+          if (equipmentMode !== 'OFF') {
+            if (!selectedTraining) {
+              setLoadingButton(false);
+              setAlertWorkoutFillFieldsOpen(true);
+              return;
+            }
+
+            // Preview adaptation if the user didn't do it explicitly.
+            const previewResult =
+              adaptationPreview || (await runAdaptation(selectedTraining, equipmentMode));
+            setAdaptationPreview(previewResult);
+
+            if (Array.isArray(previewResult?.missing) && previewResult.missing.length) {
+              setLoadingButton(false);
+              setAlertAdaptMissingOpen(true);
+              return;
+            }
+
+            const cacheKey = `${selectedTraining.id}|${equipmentMode}`;
+            const cache = getAdaptCache();
+            const cached = cache[cacheKey];
+            if (cached?.training_id) {
+              trainingIdToUse = cached.training_id;
+            } else {
+              const label = equipmentMode === 'NONE' ? 'No equipment' : 'Household';
+              const adaptedName = `${selectedTraining.name} (${label})`;
+
+              const saved = await saveTraining({ name: adaptedName, exercises: previewResult?.adapted_exercises || [] });
+              trainingIdToUse = saved.id;
+
+              cache[cacheKey] = { training_id: trainingIdToUse, name: adaptedName, createdAt: new Date().toISOString() };
+              setAdaptCache(cache);
+
+              // Keep the training selector usable without a hard refresh.
+              setTrainings((prev) => {
+                if (prev.some((t) => t.id === trainingIdToUse)) return prev;
+                return [
+                  ...prev,
+                  {
+                    id: trainingIdToUse,
+                    name: adaptedName,
+                    owner: saved.owner || selectedTraining.owner,
+                    calories_per_hour_mean: saved.calories_per_hour_mean,
+                    exercises: (previewResult?.adapted_exercises || []).map((ex: any) => ({
+                      ...ex,
+                      id: String(ex?.id || ex?.exercise_id || ''),
+                    })),
+                  },
+                ];
+              });
+            }
+          }
+
           await saveWorkout(token, {
-            training_id: newWorkout.training_id,
+            training_id: trainingIdToUse,
             coach: newWorkout.coach,
             duration: parseInt(newWorkout.duration, 10),
             date: newWorkout.date,
@@ -561,6 +677,7 @@ export default function HomePage() {
       <TopMiddleAlert alertText='Added workout successfully' open={alertWorkoutAddedOpen} onClose={() => setAlertWorkoutAddedOpen(false)} severity='success' />
       <TopMiddleAlert alertText='Added workout in Agenda successfully' open={alertWorkoutAddedForAgendaOpen} onClose={() => setAlertWorkoutAddedForAgendaOpen(false)} severity='success' />
       <TopMiddleAlert alertText='Please fill in all the fields' open={alertWorkoutFillFieldsOpen} onClose={() => setAlertWorkoutFillFieldsOpen(false)} severity='warning' />
+      <TopMiddleAlert alertText='Some exercises cannot be adapted with the selected equipment' open={alertAdaptMissingOpen} onClose={() => setAlertAdaptMissingOpen(false)} severity='warning' />
 
       {challengeModalOpen &&
         <ChallengeModal pageName='Workouts Challenges' listOfChallenges={challengesList} open={challengeModalOpen} handleClose={handleChallengeModalClose} />
@@ -689,7 +806,11 @@ export default function HomePage() {
           <Select
             fullWidth
             value={selectedTraining?.id || ""}
-            onChange={(e) => { setSelectedTraining(trainings.find((training) => training.id === e.target.value) || null); setNewWorkout({ ...newWorkout, training_id: e.target.value || '' }) }}
+            onChange={(e) => {
+              setSelectedTraining(trainings.find((training) => training.id === e.target.value) || null);
+              setNewWorkout({ ...newWorkout, training_id: e.target.value || '' });
+              setAdaptationPreview(null);
+            }}
             displayEmpty
             sx={{
               marginBottom: 1,
@@ -723,6 +844,98 @@ export default function HomePage() {
               </MenuItem>
             ))}
           </Select>
+
+          <Select
+            fullWidth
+            value={equipmentMode}
+            onChange={(e) => {
+              setEquipmentMode(e.target.value as any);
+              setAdaptationPreview(null);
+            }}
+            displayEmpty
+            disabled={!selectedTraining}
+            sx={{
+              marginBottom: 1,
+              color: '#fff',
+              '& .MuiOutlinedInput-notchedOutline': {
+                borderColor: '#fff',
+              },
+              '& .MuiSvgIcon-root': {
+                color: '#fff',
+              }
+            }}
+            MenuProps={{
+              PaperProps: {
+                sx: {
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  maxWidth: 300,
+                  padding: 1,
+                  backgroundColor: '#444',
+                  color: '#fff',
+                },
+              },
+            }}
+          >
+            <MenuItem value="OFF">
+              No adaptation (use original routine)
+            </MenuItem>
+            <MenuItem value="NONE">
+              Adapt for no equipment
+            </MenuItem>
+            <MenuItem value="HOUSEHOLD">
+              Adapt for household items
+            </MenuItem>
+          </Select>
+
+          {equipmentMode !== 'OFF' && selectedTraining && (
+            <Box sx={{ mb: 2 }}>
+              <Button
+                variant="outlined"
+                onClick={handlePreviewAdaptation}
+                disabled={adaptingTraining}
+                sx={{ color: '#fff', borderColor: '#fff' }}
+              >
+                {adaptingTraining ? 'Adapting...' : 'Preview Adaptation'}
+              </Button>
+
+              {adaptationPreview && (
+                <Box sx={{ mt: 2, p: 2, border: `1px solid ${grey[700]}`, borderRadius: 2 }}>
+                  <Typography sx={{ fontWeight: 'bold', mb: 1 }}>Adaptation Preview</Typography>
+
+                  {adaptationPreview.replacements?.length ? (
+                    <Box sx={{ mb: 1 }}>
+                      {adaptationPreview.replacements.map((r, idx) => {
+                        const from =
+                          selectedTraining.exercises.find((ex) => (ex.exercise_id || ex.id) === r.from)?.name || r.from;
+                        const to =
+                          adaptationPreview.adapted_exercises.find((ex: any) => (ex.id || ex.exercise_id) === r.to)?.name || r.to;
+                        return (
+                          <Typography key={`${r.from}-${r.to}-${idx}`} sx={{ fontSize: '0.9rem' }}>
+                            {from} → {to}
+                          </Typography>
+                        );
+                      })}
+                    </Box>
+                  ) : (
+                    <Typography sx={{ fontSize: '0.9rem', color: grey[200], mb: 1 }}>
+                      No replacements needed for this equipment.
+                    </Typography>
+                  )}
+
+                  {adaptationPreview.missing?.length ? (
+                    <Typography sx={{ fontSize: '0.9rem', color: '#ffb74d' }}>
+                      Missing alternatives for: {adaptationPreview.missing.join(', ')}
+                    </Typography>
+                  ) : null}
+
+                  <Typography sx={{ fontSize: '0.8rem', color: grey[300], mt: 1 }}>
+                    Note: to record the workout, the app will save an adapted routine for your user and reuse it next time.
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          )}
 
           <Select
             fullWidth
@@ -1033,4 +1246,3 @@ export default function HomePage() {
     </div>
   );
 }
-
