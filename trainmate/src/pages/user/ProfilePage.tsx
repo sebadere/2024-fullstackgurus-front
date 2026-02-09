@@ -15,6 +15,7 @@ import Box from '@mui/material/Box';
 import Alert from '@mui/material/Alert';
 import TopMiddleAlert from '../../personalizedComponents/TopMiddleAlert';
 import { FIELD_LIMITS } from '../../constants';
+import { signOut } from 'firebase/auth';
 
 export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
@@ -194,8 +195,10 @@ export default function ProfilePage() {
   
 
   const handleLogOut = () => {
-    localStorage.removeItem("token")
-    window.location.reload();
+    // Avoid full page reloads (breaks SPA routing on static hosts).
+    signOut(auth).catch((e) => console.error('Error signing out:', e));
+    localStorage.removeItem("token");
+    navigate('/login', { replace: true });
   }
 
   return (

@@ -34,10 +34,10 @@ export default function LogIn() {
     e.preventDefault();
     try {
       const data: any = await signInWithEmailAndPassword(auth, email, password);
-      localStorage.setItem("token", data.user.accessToken);
+      const idToken = await data.user.getIdToken();
+      localStorage.setItem("token", idToken);
       setErrorLoggingIn(false);
-      navigate('/homepage');
-      window.location.reload();
+      navigate('/homepage', { replace: true });
     } catch (error: any) {
       console.error('Error logging in:', error.message);
       setErrorLoggingIn(true);
@@ -60,12 +60,10 @@ export default function LogIn() {
       const missingField = requiredFields.some(field => !profileData[field]);
 
       if (missingField) {
-        navigate('/profile');
-        window.location.reload();
+        navigate('/profile', { replace: true });
       }
       else {
-        navigate('/homepage');
-        window.location.reload();
+        navigate('/homepage', { replace: true });
       }
     } catch (error) {
       console.error('Error al obtener el perfil del usuario:', error);

@@ -54,10 +54,10 @@ export default function SignUp() {
     try {
       await createUserWithEmailAndPassword(auth, formDataWithIntegers.email, formDataWithIntegers.password);
       const data: any = await signInWithEmailAndPassword(auth, formDataWithIntegers.email, formDataWithIntegers.password);
-      localStorage.setItem("token", data.user.accessToken);
+      const idToken = await data.user.getIdToken();
+      localStorage.setItem("token", idToken);
       await saveUserInfo(formDataWithIntegers)
-      navigate('/homepage');
-      window.location.reload();
+      navigate('/homepage', { replace: true });
     } catch (error: any) {
       console.error('Error signing up:', error.message);
     }
@@ -75,9 +75,9 @@ export default function SignUp() {
       const isFirstLogin = user.metadata.creationTime === user.metadata.lastSignInTime;
 
       if (isFirstLogin) {
-        window.location.href = '/profile';
+        navigate('/profile', { replace: true });
       } else {
-        window.location.href = '/homepage';
+        navigate('/homepage', { replace: true });
       }
 
 

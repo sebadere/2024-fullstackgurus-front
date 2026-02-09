@@ -14,26 +14,22 @@ import OutdoorPage from './pages/outdoor/OutdoorPage';
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
-  // Check if token is valid on component mount
+  // Keep auth state in sync with Firebase (works without page reloads).
   useEffect(() => {
     const auth = getAuth();
-    const token = localStorage.getItem("token");
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        // Ensure localStorage token is present for API calls.
+        const token = await user.getIdToken();
+        localStorage.setItem('token', token);
+        setIsAuthenticated(true);
+      } else {
+        localStorage.removeItem('token');
+        setIsAuthenticated(false);
+      }
+    });
 
-    // Check Firebase authentication state and token
-    if (token) {
-      onAuthStateChanged(auth, (user) => {
-        if (user) {
-          // User is authenticated
-          setIsAuthenticated(true);
-        } else {
-          // Invalid token, redirect to login
-          setIsAuthenticated(false);
-        }
-      });
-    } else {
-      // No token, user is not authenticated
-      setIsAuthenticated(false);
-    }
+    return () => unsub();
   }, []);
 
 
