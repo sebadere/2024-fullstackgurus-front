@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Button, Card, CardContent, CardHeader, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, IconButton, InputLabel, MenuItem, Select, TextField, Typography } from '@mui/material';
+import { Box, Button, Card, CardContent, CardHeader, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, FormHelperText, IconButton, InputLabel, MenuItem, Select, TextField, Typography } from '@mui/material';
 import { ArrowBack as ArrowLeftIcon } from '@mui/icons-material';
 import { grey } from '@mui/material/colors';
 import { useNavigate } from 'react-router-dom';
@@ -31,6 +31,15 @@ interface OutdoorFormState {
   notes: string;
 }
 
+interface OutdoorFormErrors {
+  activity_type?: string;
+  date?: string;
+  duration_minutes?: string;
+  distance_km?: string;
+  elevation_gain_m?: string;
+  calories?: string;
+}
+
 const activityLabels: Record<ActivityType, string> = {
   RUNNING: 'Running',
   CYCLING: 'Cycling',
@@ -52,7 +61,9 @@ const OutdoorPage: React.FC = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [alertOpen, setAlertOpen] = useState(false);
   const [alertErrorOpen, setAlertErrorOpen] = useState(false);
+  const [alertErrorText, setAlertErrorText] = useState('Please review highlighted fields');
   const [selectedActivity, setSelectedActivity] = useState<ActivityType>('RUNNING');
+  const [formErrors, setFormErrors] = useState<OutdoorFormErrors>({});
 
   const [formData, setFormData] = useState<OutdoorFormState>({
     activity_type: 'RUNNING',
@@ -74,6 +85,7 @@ const OutdoorPage: React.FC = () => {
       calories: '300',
       notes: '',
     });
+    setFormErrors({});
   };
 
   const fetchWorkouts = async () => {
@@ -99,6 +111,7 @@ const OutdoorPage: React.FC = () => {
 
   const handleOpenDialog = () => {
     setOpenDialog(true);
+    setFormErrors({});
   };
 
   const handleCloseDialog = () => {
@@ -113,12 +126,15 @@ const OutdoorPage: React.FC = () => {
     const elevation = formData.elevation_gain_m === '' ? 0 : Number(formData.elevation_gain_m);
     const calories = Number(formData.calories);
 
-    const requiredMissing =
-      !formData.activity_type ||
-      !formData.date ||
-      formData.duration_minutes.trim() === '' ||
-      formData.calories.trim() === '';
-
+    const errors: OutdoorFormErrors = {};
+    if (!formData.activity_type) errors.activity_type = 'Activity is required';
+    if (!formData.date) errors.date = 'Date is required';
+    if (formData.duration_minutes.trim() === '') {
+      errors.duration_minutes = 'Duration is required';
+    }
+    if (formData.calories.trim() === '') {
+      errors.calories = 'Calories is required';
+    }
     const durationOk =
       Number.isFinite(duration) &&
       duration >= OUTDOOR_BOUNDS.durationMinutes.min &&
@@ -136,7 +152,22 @@ const OutdoorPage: React.FC = () => {
       calories >= OUTDOOR_BOUNDS.calories.min &&
       calories <= OUTDOOR_BOUNDS.calories.max;
 
-    if (requiredMissing || !durationOk || !distanceOk || !elevationOk || !caloriesOk) {
+    if (!errors.duration_minutes && !durationOk) {
+      errors.duration_minutes = `Duration must be between ${OUTDOOR_BOUNDS.durationMinutes.min} and ${OUTDOOR_BOUNDS.durationMinutes.max}`;
+    }
+    if (!distanceOk) {
+      errors.distance_km = `Distance must be between ${OUTDOOR_BOUNDS.distanceKm.min} and ${OUTDOOR_BOUNDS.distanceKm.max}`;
+    }
+    if (!elevationOk) {
+      errors.elevation_gain_m = `Elevation must be between ${OUTDOOR_BOUNDS.elevationGainM.min} and ${OUTDOOR_BOUNDS.elevationGainM.max}`;
+    }
+    if (!errors.calories && !caloriesOk) {
+      errors.calories = `Calories must be between ${OUTDOOR_BOUNDS.calories.min} and ${OUTDOOR_BOUNDS.calories.max}`;
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      setAlertErrorText('Please review highlighted fields');
       setAlertErrorOpen(true);
       return;
     }
@@ -159,6 +190,7 @@ const OutdoorPage: React.FC = () => {
       await fetchWorkouts();
     } catch (error) {
       console.error('Error saving outdoor workout:', error);
+      setAlertErrorText('Could not save outdoor session');
       setAlertErrorOpen(true);
     } finally {
       setLoading(false);
@@ -170,7 +202,7 @@ const OutdoorPage: React.FC = () => {
   return (
     <Box sx={{ backgroundColor: 'black', color: 'white', p: 4, minHeight: '100vh' }}>
       <TopMiddleAlert alertText='Outdoor session saved' open={alertOpen} onClose={() => setAlertOpen(false)} severity='success' />
-      <TopMiddleAlert alertText='Please fill all required fields' open={alertErrorOpen} onClose={() => setAlertErrorOpen(false)} severity='warning' />
+      <TopMiddleAlert alertText={alertErrorText} open={alertErrorOpen} onClose={() => setAlertErrorOpen(false)} severity='warning' />
 
       <Box component="header" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -265,6 +297,7 @@ const OutdoorPage: React.FC = () => {
               labelId="activity-type-label"
               value={formData.activity_type}
               label="Activity"
+              error={Boolean(formErrors.activity_type)}
               sx={{ color: '#fff' }}
               MenuProps={{
                 PaperProps: {
@@ -274,13 +307,19 @@ const OutdoorPage: React.FC = () => {
                   },
                 },
               }}
-              onChange={(e) => setFormData({ ...formData, activity_type: e.target.value as ActivityType })}
+              onChange={(e) => {
+                setFormData({ ...formData, activity_type: e.target.value as ActivityType });
+                setFormErrors((prev) => ({ ...prev, activity_type: undefined }));
+              }}
             >
               <MenuItem value="RUNNING">Running</MenuItem>
               <MenuItem value="CYCLING">Cycling</MenuItem>
               <MenuItem value="HIKING">Hiking</MenuItem>
               <MenuItem value="WALKING">Walking</MenuItem>
             </Select>
+            {formErrors.activity_type && (
+              <FormHelperText sx={{ color: '#d32f2f' }}>{formErrors.activity_type}</FormHelperText>
+            )}
           </FormControl>
 
           <TextField
@@ -291,8 +330,13 @@ const OutdoorPage: React.FC = () => {
             InputLabelProps={{ shrink: true }}
             InputProps={{ style: { color: '#fff' } }}
             sx={{ '& .MuiInputLabel-root': { color: '#fff' } }}
+            error={Boolean(formErrors.date)}
+            helperText={formErrors.date}
             value={formData.date}
-            onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+            onChange={(e) => {
+              setFormData({ ...formData, date: e.target.value });
+              setFormErrors((prev) => ({ ...prev, date: undefined }));
+            }}
           />
           <TextField
             margin="dense"
@@ -301,8 +345,13 @@ const OutdoorPage: React.FC = () => {
             fullWidth
             InputProps={{ style: { color: '#fff' } }}
             sx={{ '& .MuiInputLabel-root': { color: '#fff' } }}
+            error={Boolean(formErrors.duration_minutes)}
+            helperText={formErrors.duration_minutes}
             value={formData.duration_minutes}
-            onChange={(e) => setFormData({ ...formData, duration_minutes: e.target.value })}
+            onChange={(e) => {
+              setFormData({ ...formData, duration_minutes: e.target.value });
+              setFormErrors((prev) => ({ ...prev, duration_minutes: undefined }));
+            }}
             slotProps={{ htmlInput: { min: OUTDOOR_BOUNDS.durationMinutes.min, max: OUTDOOR_BOUNDS.durationMinutes.max } }}
           />
           <TextField
@@ -312,8 +361,13 @@ const OutdoorPage: React.FC = () => {
             fullWidth
             InputProps={{ style: { color: '#fff' } }}
             sx={{ '& .MuiInputLabel-root': { color: '#fff' } }}
+            error={Boolean(formErrors.distance_km)}
+            helperText={formErrors.distance_km}
             value={formData.distance_km}
-            onChange={(e) => setFormData({ ...formData, distance_km: e.target.value })}
+            onChange={(e) => {
+              setFormData({ ...formData, distance_km: e.target.value });
+              setFormErrors((prev) => ({ ...prev, distance_km: undefined }));
+            }}
             slotProps={{ htmlInput: { min: OUTDOOR_BOUNDS.distanceKm.min, max: OUTDOOR_BOUNDS.distanceKm.max } }}
           />
           {formData.activity_type === 'HIKING' && (
@@ -324,8 +378,13 @@ const OutdoorPage: React.FC = () => {
               fullWidth
               InputProps={{ style: { color: '#fff' } }}
               sx={{ '& .MuiInputLabel-root': { color: '#fff' } }}
+              error={Boolean(formErrors.elevation_gain_m)}
+              helperText={formErrors.elevation_gain_m}
               value={formData.elevation_gain_m}
-              onChange={(e) => setFormData({ ...formData, elevation_gain_m: e.target.value })}
+              onChange={(e) => {
+                setFormData({ ...formData, elevation_gain_m: e.target.value });
+                setFormErrors((prev) => ({ ...prev, elevation_gain_m: undefined }));
+              }}
               slotProps={{ htmlInput: { min: OUTDOOR_BOUNDS.elevationGainM.min, max: OUTDOOR_BOUNDS.elevationGainM.max } }}
             />
           )}
@@ -336,8 +395,13 @@ const OutdoorPage: React.FC = () => {
             fullWidth
             InputProps={{ style: { color: '#fff' } }}
             sx={{ '& .MuiInputLabel-root': { color: '#fff' } }}
+            error={Boolean(formErrors.calories)}
+            helperText={formErrors.calories}
             value={formData.calories}
-            onChange={(e) => setFormData({ ...formData, calories: e.target.value })}
+            onChange={(e) => {
+              setFormData({ ...formData, calories: e.target.value });
+              setFormErrors((prev) => ({ ...prev, calories: undefined }));
+            }}
             slotProps={{ htmlInput: { min: OUTDOOR_BOUNDS.calories.min, max: OUTDOOR_BOUNDS.calories.max } }}
           />
           <TextField
