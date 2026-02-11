@@ -1,9 +1,9 @@
 interface Workout {
-    id: number;
+    id: number | string;
     duration: number;
     date: string;
     total_calories: number;
-    coach: string;
+    coach?: string;
     training: Training;
 }
 

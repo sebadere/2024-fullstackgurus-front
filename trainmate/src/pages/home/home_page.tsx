@@ -18,6 +18,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tool
 import Typography from '@mui/material/Typography';
 import ScrollArea from '@mui/material/Box';
 import { getWorkouts, saveWorkout, getWorkoutsCalories } from '../../api/WorkoutsApi';
+import { getOutdoorWorkouts } from '../../api/OutdoorWorkoutsApi';
 import { calculate_calories_and_duration_per_day } from '../../functions/calculations';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
@@ -46,13 +47,18 @@ import Last30DaysProgress from './last30daysCaloriesProgress';
 
 
 interface Workout {
-  id: number;
+  id: number | string;
   duration: number;
   date: string;
   total_calories: number;
   coach: string;
   training: Training;
   training_id: string;
+  is_outdoor?: boolean;
+  activity_type?: string;
+  distance_km?: number;
+  elevation_gain_m?: number;
+  notes?: string;
 }
 
 interface Training {
@@ -230,6 +236,37 @@ export default function HomePage() {
     }
   };
 
+  const getAllOutdoorWorkouts = async (): Promise<Workout[]> => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const outdoorWorkouts = await getOutdoorWorkouts(undefined, today);
+      if (!Array.isArray(outdoorWorkouts)) return [];
+
+      return outdoorWorkouts.map((ow: any) => ({
+        id: ow.id,
+        duration: ow.duration_minutes,
+        date: ow.date,
+        total_calories: ow.calories,
+        coach: '',
+        training_id: '',
+        training: {
+          name: ow.activity_type.charAt(0) + ow.activity_type.slice(1).toLowerCase(),
+          calories_per_hour_mean: 0,
+          exercises: [],
+          owner: '',
+        },
+        is_outdoor: true,
+        activity_type: ow.activity_type,
+        distance_km: ow.distance_km,
+        elevation_gain_m: ow.elevation_gain_m,
+        notes: ow.notes,
+      }));
+    } catch (error) {
+      console.error('Error al obtener outdoor workouts:', error);
+      return [];
+    }
+  };
+
   useEffect(() => {
     const updateTimeRange = () => {
       setTimeRange(window.innerWidth < 768 ? 'WEEKLY' : 'TWO_WEEKS');
@@ -240,8 +277,17 @@ export default function HomePage() {
     return () => window.removeEventListener('resize', updateTimeRange);
   }, []);
 
+  const parseLocalDate = (dateString: string): Date => {
+    // Parse YYYY-MM-DD as local time (not UTC) to avoid timezone day shifts
+    const parts = dateString.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (parts) {
+      return new Date(parseInt(parts[1]), parseInt(parts[2]) - 1, parseInt(parts[3]));
+    }
+    return new Date(dateString);
+  };
+
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+    const date = parseLocalDate(dateString);
     const day = date.getDate().toString().padStart(2, '0');
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
     return `${day}/${month}`;
@@ -251,7 +297,7 @@ export default function HomePage() {
     return Object.keys(caloriesPerDay)
       .map((date) => ({
         date: formatDate(date),
-        timestamp: new Date(date).getTime(),
+        timestamp: parseLocalDate(date).getTime(),
         Calories: caloriesPerDay[date][0],
         Minutes: caloriesPerDay[date][1],
       }))
@@ -302,11 +348,17 @@ export default function HomePage() {
   }
 
 
+  const getAllWorkoutsFromCache = (): Workout[] => {
+    const regular = JSON.parse(localStorage.getItem('workouts') || '[]');
+    const outdoor = JSON.parse(localStorage.getItem('outdoor_workouts') || '[]');
+    return [...regular, ...outdoor];
+  };
+
   const handleFilterTrainingClose = (selectedTraining: { id: string }) => {
     setFilterTrainingOpen(false);
 
     if (selectedTraining) {
-      let allWorkoutsList = JSON.parse(localStorage.getItem('workouts') || '[]');
+      let allWorkoutsList = getAllWorkoutsFromCache();
 
       if (selectedCoachInFilter) {
         allWorkoutsList = allWorkoutsList.filter((workout: Workout) => workout.coach === selectedCoachInFilter);
@@ -329,7 +381,7 @@ export default function HomePage() {
     setFilterCoachOpen(false);
 
     if (selectedCoach) {
-      let allWorkoutsList = JSON.parse(localStorage.getItem('workouts') || '[]');
+      let allWorkoutsList = getAllWorkoutsFromCache();
 
       if (selectedTrainingInFilter) {
         allWorkoutsList = allWorkoutsList.filter((workout: Workout) => workout.training_id === selectedTrainingInFilter.id);
@@ -350,7 +402,7 @@ export default function HomePage() {
 
   const handleCloseOfTrainingFilterLabel = () => {
     setSelectedTrainingInFilter(null);
-    let allWorkoutsList = JSON.parse(localStorage.getItem('workouts') || '[]');
+    let allWorkoutsList = getAllWorkoutsFromCache();
 
     if (selectedCoachInFilter) {
       const filteredWorkouts = allWorkoutsList.filter((workout: Workout) => workout.coach === selectedCoachInFilter);
@@ -372,7 +424,7 @@ export default function HomePage() {
 
   const handleCloseOfCoachFilterLabel = () => {
     setSelectedCoachInFilter('');
-    let allWorkoutsList = JSON.parse(localStorage.getItem('workouts') || '[]');
+    let allWorkoutsList = getAllWorkoutsFromCache();
 
     if (selectedTrainingInFilter) {
       const filteredWorkouts = allWorkoutsList.filter((workout: Workout) => workout.training_id === selectedTrainingInFilter.id);
@@ -592,30 +644,46 @@ export default function HomePage() {
           localStorage.setItem('categories_timestamp', Date.now().toString());
         }
 
-        // Step 2: Fetch Workouts
+        // Step 2a: Fetch Regular Workouts (with cache)
         console.log("Fetching workouts...");
         const workouts_from_local_storage = JSON.parse(localStorage.getItem('workouts') || '[]');
         const workouts_timestamp = parseInt(localStorage.getItem('workouts_timestamp') || '0', 10);
-        const calories_duration_per_day_from_local_storage = JSON.parse(localStorage.getItem('calories_duration_per_day') || '{}');
-        let sortedWorkouts = workouts_from_local_storage;
+        let regularWorkouts: Workout[];
 
-        if (workouts_from_local_storage.length > 0 && Object.keys(calories_duration_per_day_from_local_storage).length > 0 && (now - workouts_timestamp < TTL)) {
-          setWorkoutList(workouts_from_local_storage);
-          setCaloriesPerDay(calories_duration_per_day_from_local_storage);
-          console.log('Workouts and calories per day loaded from local storage');
+        if (workouts_from_local_storage.length > 0 && (now - workouts_timestamp < TTL)) {
+          regularWorkouts = workouts_from_local_storage.filter((w: Workout) => !w.is_outdoor);
+          console.log('Regular workouts loaded from local storage');
         } else {
           const workouts = await getAllWorkouts();
-          const validWorkouts = workouts.filter((workout: Workout) => workout.duration && workout.date && workout.total_calories && workout.coach);
-          sortedWorkouts = validWorkouts.sort((a: Workout, b: Workout) => new Date(b.date).getTime() - new Date(a.date).getTime());
-          setWorkoutList(sortedWorkouts);
-
-          const calories_duration_per_day = calculate_calories_and_duration_per_day(sortedWorkouts);
-          setCaloriesPerDay(calories_duration_per_day);
-
-          localStorage.setItem('workouts', JSON.stringify(sortedWorkouts));
+          regularWorkouts = workouts.filter((workout: Workout) => workout.duration && workout.date && workout.total_calories && workout.coach);
+          localStorage.setItem('workouts', JSON.stringify(regularWorkouts));
           localStorage.setItem('workouts_timestamp', Date.now().toString());
-          localStorage.setItem('calories_duration_per_day', JSON.stringify(calories_duration_per_day));
         }
+
+        // Step 2b: Fetch Outdoor Workouts (with separate cache)
+        console.log("Fetching outdoor workouts...");
+        const outdoor_from_local_storage = JSON.parse(localStorage.getItem('outdoor_workouts') || '[]');
+        const outdoor_timestamp = parseInt(localStorage.getItem('outdoor_workouts_timestamp') || '0', 10);
+        let outdoorWorkoutsList: Workout[];
+
+        if (outdoor_from_local_storage.length > 0 && (now - outdoor_timestamp < TTL)) {
+          outdoorWorkoutsList = outdoor_from_local_storage;
+          console.log('Outdoor workouts loaded from local storage');
+        } else {
+          const outdoorRaw = await getAllOutdoorWorkouts();
+          outdoorWorkoutsList = outdoorRaw.filter((workout: Workout) => workout.duration && workout.date && workout.total_calories);
+          localStorage.setItem('outdoor_workouts', JSON.stringify(outdoorWorkoutsList));
+          localStorage.setItem('outdoor_workouts_timestamp', Date.now().toString());
+        }
+
+        // Step 2c: Merge and compute stats
+        const allWorkouts = [...regularWorkouts, ...outdoorWorkoutsList];
+        const sortedWorkouts = allWorkouts.sort((a: Workout, b: Workout) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        setWorkoutList(sortedWorkouts);
+
+        const calories_duration_per_day = calculate_calories_and_duration_per_day(sortedWorkouts);
+        setCaloriesPerDay(calories_duration_per_day);
+        localStorage.setItem('calories_duration_per_day', JSON.stringify(calories_duration_per_day));
 
         // Step 3: Fetch Coaches
         console.log("Fetching coaches...");
@@ -1204,20 +1272,38 @@ export default function HomePage() {
                         <div className="flex-1">
                           <Divider sx={{ backgroundColor: 'gray', marginY: 1 }} />
                           <Box sx={{ display: 'flex', flexDirection: { xs: 'row', sm: 'row' }, justifyContent: 'space-between', width: '100%', marginBottom: 1 }}>
-                            <Typography variant="h6" color="#81d8d0" sx={{ flex: 1, fontSize: { xs: '1rem', sm: '1.2rem', md: '1.4rem' } }}>{workout.training.name}</Typography>
+                            <Typography variant="h6" color={workout.is_outdoor ? '#f0a500' : '#81d8d0'} sx={{ flex: 1, fontSize: { xs: '1rem', sm: '1.2rem', md: '1.4rem' } }}>
+                              {workout.training.name}
+                              {workout.is_outdoor && <span style={{ fontSize: '0.7em', marginLeft: 6, opacity: 0.7 }}>Outdoor</span>}
+                            </Typography>
                             <Typography variant="h6" color='#44f814' sx={{ flex: 1, textAlign: 'left', fontSize: { xs: '1rem', sm: '1.2rem', md: '1.4rem' } }}>{workout.duration} min</Typography>
                             <Typography variant="h6" color='#E43654' sx={{ flex: 1, textAlign: 'left', fontSize: { xs: '1rem', sm: '1.2rem', md: '1.4rem' } }}>{workout.total_calories} kcal</Typography>
                             <Typography variant="subtitle1" color='gray' sx={{ flex: 1, textAlign: 'right', fontSize: { xs: '0.8rem', sm: '1rem', md: '1.2rem' } }}>{formatDate(workout.date)} </Typography>
                           </Box>
-                          <Typography variant="body2">
-                            {workout.training.exercises.map((exercise: any, index: number) => (
-                              <span key={exercise.id}>
-                                {exercise.name}
-                                {index < workout.training.exercises.length - 1 && ' - '}
-                              </span>
-                            ))}
-                          </Typography>
-                          <Typography variant="body2" color="gray">Coach: {workout.coach}</Typography>
+                          {workout.is_outdoor ? (
+                            <>
+                              {(workout.distance_km > 0 || workout.elevation_gain_m > 0) && (
+                                <Typography variant="body2">
+                                  {workout.distance_km > 0 && <span>{workout.distance_km} km</span>}
+                                  {workout.distance_km > 0 && workout.elevation_gain_m > 0 && ' - '}
+                                  {workout.elevation_gain_m > 0 && <span>{workout.elevation_gain_m} m elevation</span>}
+                                </Typography>
+                              )}
+                              {workout.notes && <Typography variant="body2" color="gray">{workout.notes}</Typography>}
+                            </>
+                          ) : (
+                            <>
+                              <Typography variant="body2">
+                                {workout.training.exercises.map((exercise: any, index: number) => (
+                                  <span key={exercise.id}>
+                                    {exercise.name}
+                                    {index < workout.training.exercises.length - 1 && ' - '}
+                                  </span>
+                                ))}
+                              </Typography>
+                              <Typography variant="body2" color="gray">Coach: {workout.coach}</Typography>
+                            </>
+                          )}
                         </div>
                       </div>
                     ))

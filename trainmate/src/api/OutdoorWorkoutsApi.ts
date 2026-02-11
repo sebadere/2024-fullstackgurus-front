@@ -105,6 +105,49 @@ export const getOutdoorWorkouts = async (startDate?: string, endDate?: string, a
   }
 };
 
+export const updateOutdoorWorkout = async (workoutId: string, payload: OutdoorWorkoutPayload) => {
+  const token = getAuthToken();
+  if (!token) throw new Error('Token no encontrado');
+
+  try {
+    const response = await fetch(`${BASE_URL}/api/outdoor-workouts/update/${workoutId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': token,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (response.status === 403 || response.status === 401) {
+      const newToken = await refreshAuthToken();
+      const retryResponse = await fetch(`${BASE_URL}/api/outdoor-workouts/update/${workoutId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${newToken}`,
+        },
+        body: JSON.stringify(payload),
+      });
+      if (!retryResponse.ok) {
+        const errorData = await retryResponse.json();
+        throw new Error(errorData.error || 'Error al actualizar outdoor workout');
+      }
+      return await retryResponse.json();
+    }
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Error al actualizar outdoor workout');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error al actualizar outdoor workout:', error);
+    throw error;
+  }
+};
+
 export const deleteOutdoorWorkout = async (workoutId: string) => {
   const token = getAuthToken();
   if (!token) throw new Error('Token no encontrado');
